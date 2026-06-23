@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Minimal custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Draggable / Resizable overlays */
+.pdf-page-container {
+  position: relative;
+  user-select: none;
+}
+
+.overlay-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.interactive-overlay {
+  position: absolute;
+  pointer-events: auto;
+  border: 1.5px dashed #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.interactive-overlay.active {
+  border-color: #aa3bff;
+  background-color: rgba(170, 59, 255, 0.15);
+}
+
+.resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #3b82f6;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  bottom: -5px;
+  right: -5px;
+  cursor: se-resize;
+}
+
+.interactive-overlay.active .resize-handle {
+  background-color: #aa3bff;
+}
+
+/* Hide arrow controls on detail summary default list style */
+summary::-webkit-details-marker {
+  display: none;
+}
