@@ -1263,6 +1263,51 @@ export default function App() {
 
   // Zoom feature state
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [pageInputVal, setPageInputVal] = useState('1');
+  const pageInputRef = useRef(null);
+
+  // Sync page input when pdfjsDoc is loaded
+  useEffect(() => {
+    setPageInputVal('1');
+  }, [pdfjsDoc]);
+
+  const jumpToPage = (pageNum) => {
+    const pageIdx = parseInt(pageNum, 10) - 1;
+    if (pageIdx >= 0 && pageIdx < totalPages) {
+      const el = pageContainerRefs.current[pageIdx];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
+  const handleScroll = (e) => {
+    if (totalPages <= 0) return;
+    const container = e.currentTarget;
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.top + containerRect.height / 2;
+    
+    let closestPageIdx = 0;
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < totalPages; i++) {
+      const el = pageContainerRefs.current[i];
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const elCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(elCenter - containerCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPageIdx = i;
+        }
+      }
+    }
+    const newPageNumStr = String(closestPageIdx + 1);
+    if (document.activeElement !== pageInputRef.current && pageInputVal !== newPageNumStr) {
+      setPageInputVal(newPageNumStr);
+    }
+  };
+
   const pinchState = useRef({ active: false, startDist: 0, startZoom: 100 });
 
   const handleTouchStart = (e) => {
@@ -1343,6 +1388,7 @@ export default function App() {
     setMergeFiles([]);
     setExtractedImages([]);
     setExtractRange('');
+    setPageInputVal('1');
   };
 
   // --- PDF RECONSTRUCTION LOGIC ---
@@ -2762,7 +2808,36 @@ export default function App() {
                     onChange={(e) => setZoomLevel(Number(e.target.value))}
                     className="w-full max-w-[200px] h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
                   />
-                  <span className="text-xs font-bold text-gray-300 w-10 text-right">{zoomLevel}%</span>
+                  <span className="text-xs font-bold text-gray-300 w-10 text-right mr-2">{zoomLevel}%</span>
+
+                  {/* Editable Page Input Box / Total Pages */}
+                  <div className="flex items-center gap-1.5 bg-gray-900/60 border border-gray-800 px-2 py-0.5 rounded-lg shrink-0">
+                    <input
+                      ref={pageInputRef}
+                      type="text"
+                      value={pageInputVal}
+                      onChange={(e) => setPageInputVal(e.target.value.replace(/[^0-9]/g, ''))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          let val = parseInt(pageInputVal, 10);
+                          if (isNaN(val) || val < 1) val = 1;
+                          if (val > totalPages) val = totalPages;
+                          setPageInputVal(String(val));
+                          jumpToPage(val);
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={() => {
+                        let val = parseInt(pageInputVal, 10);
+                        if (isNaN(val) || val < 1) val = 1;
+                        if (val > totalPages) val = totalPages;
+                        setPageInputVal(String(val));
+                        jumpToPage(val);
+                      }}
+                      className="w-8 bg-gray-950 text-center text-xs font-bold text-purple-400 focus:outline-none border border-gray-800 rounded focus:border-purple-500 py-0.5"
+                    />
+                    <span className="text-xs font-bold text-gray-500 select-none">/ {totalPages}</span>
+                  </div>
                 </div>
               )}
 
@@ -2772,6 +2847,7 @@ export default function App() {
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
+                onScroll={handleScroll}
                 style={{ touchAction: 'pan-x pan-y' }}
               >
 
