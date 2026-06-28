@@ -1096,6 +1096,21 @@ export default function App() {
     }
   }, [theme]);
 
+  // Prevent unsaved data loss on refresh/close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (originalBytes) {
+        e.preventDefault();
+        e.returnValue = "Are you sure you want to refresh the page? Your session will close and the file won't be saved.";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [originalBytes]);
+
   // Version Control tree states
   const [versions, setVersions] = useState([]); // Array of { id, label, ops }
   const [activeVersionIndex, setActiveVersionIndex] = useState(-1);
