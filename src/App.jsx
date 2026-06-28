@@ -140,6 +140,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
+  const [expandedAccordions, setExpandedAccordions] = useState([]);
+  const [faqOpen, setFaqOpen] = useState(false);
   const [showDownloadAllModal, setShowDownloadAllModal] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -1913,9 +1915,9 @@ export default function App() {
 
       {/* ABOUT & LIMITS INFO DIALOG */}
       {infoOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6 animate-fade-in">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
-            <div className="bg-gray-900 border-b border-gray-850 p-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 flex justify-center items-start animate-fade-in">
+          <div className="bg-gray-950 border border-gray-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-auto md:my-8 shrink-0">
+            <div className="bg-gray-900 border-b border-gray-850 p-4 flex justify-between items-center shrink-0">
               <h3 className="text-sm font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
                 ⓘ PDF Tool Specifications & Q&A
               </h3>
@@ -1928,95 +1930,233 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-6 flex flex-col gap-4 text-left text-xs leading-relaxed text-gray-400 max-h-[60vh] overflow-y-auto">
-              <div className="flex items-start gap-2.5 border-b border-gray-900 pb-3">
-                <span className="text-sm">📁</span>
-                <div>
-                  <span className="font-semibold text-gray-200 block mb-0.5">File size limits:</span>
-                  - Max file upload limit: 50MB (warning shown at 50MB+)<br />
-                  - Max merge size: 100MB total across files<br />
-                  - Max merge files: 10 PDF files
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 border-b border-gray-900 pb-3">
-                <span className="text-sm">🔒</span>
-                <div>
-                  <span className="font-semibold text-gray-200 block mb-0.5">Privacy Protection:</span>
-                  100% Client-Side execution. Your documents never leave your local device storage. There is no server interaction or database storage.
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 border-b border-gray-900 pb-3">
-                <span className="text-sm">🕓</span>
-                <div>
-                  <span className="font-semibold text-gray-200 block mb-0.5">Temporary Session History:</span>
-                  The operation log and version tree are saved in-memory and will be cleared if you refresh the browser page. Download your edits before leaving.
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 border-b border-gray-900 pb-3">
-                <span className="text-sm">
-                  <svg className="w-4 h-4 fill-current mt-0.5" viewBox="0 0 16 16" version="1.1" aria-hidden="true">
-                    <path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            <div className="p-6 flex flex-col gap-4 text-left text-xs leading-relaxed text-gray-400">
+              {/* ACCORDION 1: File Size Limits */}
+              <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                <button
+                  type="button"
+                  onClick={() => setExpandedAccordions(prev => prev.includes('limits') ? prev.filter(x => x !== 'limits') : [...prev, 'limits'])}
+                  className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-purple-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    File Size Limits
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('limits') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                </span>
-                <div>
-                  <span className="font-semibold text-gray-200 block mb-0.5">Project Info & Tech Stack:</span>
-                  Client-side only processing using React, Vite, Tailwind CSS, and PDF-lib. <br />
-                  <a href="https://github.com/pakcli/client-side-pdf-editor" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline mt-1 inline-block">
-                    Source Code on GitHub
-                  </a>
-                </div>
+                </button>
+                {expandedAccordions.includes('limits') && (
+                  <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
+                    - Max file upload limit: 50MB (warning shown at 50MB+)<br />
+                    - Max merge size: 100MB total across files<br />
+                    - Max merge files: 10 PDF files
+                  </div>
+                )}
               </div>
 
-              {/* Q&A Section */}
-              <div className="border-t border-gray-900 pt-4 mt-2">
-                <span className="font-semibold text-gray-200 block mb-3 text-sm">💡 Frequently Asked Questions (Q&A)</span>
-                
-                <div className="flex flex-col gap-4">
-                  <div className="bg-gray-900/40 p-3 rounded-lg border border-gray-900">
-                    <h4 className="font-bold text-gray-300 mb-1">Q1: How does it not use a server?</h4>
-                    <p className="text-gray-400 text-[11px] leading-relaxed">
-                      The application runs entirely in your local browser sandbox. It reads files locally via HTML5 File APIs (`ArrayBuffer`) and processes/writes them using client-side JavaScript. There are zero backend HTTP calls or database APIs transmitting your documents.
-                    </p>
+              {/* ACCORDION 2: Privacy Protection */}
+              <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                <button
+                  type="button"
+                  onClick={() => setExpandedAccordions(prev => prev.includes('privacy') ? prev.filter(x => x !== 'privacy') : [...prev, 'privacy'])}
+                  className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Privacy Protection
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('privacy') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {expandedAccordions.includes('privacy') && (
+                  <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
+                    100% Client-Side execution. Your documents never leave your local device storage. There is no server interaction or database storage.
                   </div>
+                )}
+              </div>
 
-                  <div className="bg-gray-900/40 p-3 rounded-lg border border-gray-900">
-                    <h4 className="font-bold text-gray-300 mb-1">Q2: How does the app workflow work in a client device?</h4>
-                    <ol className="list-decimal pl-4 text-gray-400 text-[11px] leading-relaxed flex flex-col gap-1">
-                      <li><strong>Upload:</strong> The PDF is parsed locally using PDF.js.</li>
-                      <li><strong>Editing:</strong> Edits (like reordering, page extraction, overlays) are tracked as lightweight JSON operation logs rather than saving massive PDF files, optimizing memory.</li>
-                      <li><strong>Reconstruction:</strong> When previewing or saving, `pdf-lib` recompiles the PDF by applying the operation queue step-by-step onto the original file array buffer.</li>
-                      <li><strong>Download:</strong> A local Blob URL is generated, allowing the browser to download the file directly from your RAM.</li>
-                    </ol>
+              {/* ACCORDION 3: Temporary Session History */}
+              <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                <button
+                  type="button"
+                  onClick={() => setExpandedAccordions(prev => prev.includes('session') ? prev.filter(x => x !== 'session') : [...prev, 'session'])}
+                  className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-yellow-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Temporary Session History
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('session') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {expandedAccordions.includes('session') && (
+                  <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
+                    The operation log and version tree are saved in-memory and will be cleared if you refresh the browser page. Download your edits before leaving.
                   </div>
+                )}
+              </div>
 
-                  <div className="bg-gray-900/40 p-3 rounded-lg border border-gray-900">
-                    <h4 className="font-bold text-gray-300 mb-1">Q3: What is client-side processing?</h4>
-                    <p className="text-gray-400 text-[11px] leading-relaxed">
-                      Client-side processing means all computational tasks, rendering, and file manipulations happen directly on the user's local machine (the client) within the browser's execution engine, instead of sending data to a remote cloud server to be processed.
-                    </p>
+              {/* ACCORDION 4: Project Info & Tech Stack */}
+              <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                <button
+                  type="button"
+                  onClick={() => setExpandedAccordions(prev => prev.includes('tech') ? prev.filter(x => x !== 'tech') : [...prev, 'tech'])}
+                  className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Project Info & Tech Stack
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('tech') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {expandedAccordions.includes('tech') && (
+                  <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
+                    Client-side only processing using React, Vite, Tailwind CSS, and PDF-lib. <br />
+                    <a href="https://github.com/pakcli/client-side-pdf-editor" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline mt-1.5 inline-block font-bold">
+                      Source Code on GitHub
+                    </a>
                   </div>
+                )}
+              </div>
 
-                  <div className="bg-gray-900/40 p-3 rounded-lg border border-gray-900">
-                    <h4 className="font-bold text-gray-300 mb-1">Q4: What is the tech stack needed?</h4>
-                    <p className="text-gray-400 text-[11px] leading-relaxed">
-                      The app is built using React, Vite, and Tailwind CSS. It leverages Mozilla's <strong>PDF.js</strong> to read and render PDF pages onto HTML5 canvas elements, <strong>PDF-Lib</strong> to create/modify PDF binary bytes offline, and <strong>JSZip</strong> to bundle files into a ZIP inside the browser.
-                    </p>
-                  </div>
+              {/* Q&A Section Accordion */}
+              <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                <button
+                  type="button"
+                  onClick={() => setFaqOpen(prev => !prev)}
+                  className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.172a5 5 0 01-.012 0z" />
+                    </svg>
+                    Frequently Asked Questions (Q&A)
+                  </span>
+                  <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${faqOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {faqOpen && (
+                  <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 flex flex-col gap-3">
+                    {/* Q1 */}
+                    <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAccordions(prev => prev.includes('q1') ? prev.filter(x => x !== 'q1') : [...prev, 'q1'])}
+                        className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                      >
+                        <span>Q1: How does it not use a server?</span>
+                        <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q1') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {expandedAccordions.includes('q1') && (
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
+                          The application runs entirely in your local browser sandbox. It reads files locally via HTML5 File APIs (`ArrayBuffer`) and processes/writes them using client-side JavaScript. There are zero backend HTTP calls or database APIs transmitting your documents.
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="bg-gray-900/40 p-3 rounded-lg border border-gray-900">
-                    <h4 className="font-bold text-gray-300 mb-1">Q5: What is PDF-Lib for this, and does it use my data, and how does the program work offline-able?</h4>
-                    <p className="text-gray-400 text-[11px] leading-relaxed">
-                      PDF-Lib is a pure JavaScript library that reads, modifies, and compiles PDF binary structures directly in the browser's memory. It does not collect, store, or transmit your data. The program is fully offline-able because all code libraries (Vite bundles, PDF.js, PDF-lib, JSZip) are served directly to your browser cache, running independently of the internet once loaded.
-                    </p>
+                    {/* Q2 */}
+                    <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAccordions(prev => prev.includes('q2') ? prev.filter(x => x !== 'q2') : [...prev, 'q2'])}
+                        className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                      >
+                        <span>Q2: How does the workflow work in a client device?</span>
+                        <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q2') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {expandedAccordions.includes('q2') && (
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
+                          <ol className="list-decimal pl-4 flex flex-col gap-1">
+                            <li><strong>Upload:</strong> The PDF is parsed locally using PDF.js.</li>
+                            <li><strong>Editing:</strong> Edits (like reordering, page extraction, overlays) are tracked as lightweight JSON operation logs rather than saving massive PDF files, optimizing memory.</li>
+                            <li><strong>Reconstruction:</strong> When previewing or saving, `pdf-lib` recompiles the PDF by applying the operation queue step-by-step onto the original file array buffer.</li>
+                            <li><strong>Download:</strong> A local Blob URL is generated, allowing the browser to download the file directly from your RAM.</li>
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q3 */}
+                    <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAccordions(prev => prev.includes('q3') ? prev.filter(x => x !== 'q3') : [...prev, 'q3'])}
+                        className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                      >
+                        <span>Q3: What is client-side processing?</span>
+                        <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q3') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {expandedAccordions.includes('q3') && (
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
+                          Client-side processing means all computational tasks, rendering, and file manipulations happen directly on the user's local machine (the client) within the browser's execution engine, instead of sending data to a remote cloud server to be processed.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q4 */}
+                    <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAccordions(prev => prev.includes('q4') ? prev.filter(x => x !== 'q4') : [...prev, 'q4'])}
+                        className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                      >
+                        <span>Q4: What is the tech stack needed?</span>
+                        <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q4') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {expandedAccordions.includes('q4') && (
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
+                          The app is built using React, Vite, and Tailwind CSS. It leverages Mozilla's <strong>PDF.js</strong> to read and render PDF pages onto HTML5 canvas elements, <strong>PDF-Lib</strong> to create/modify PDF binary bytes offline, and <strong>JSZip</strong> to bundle files into a ZIP inside the browser.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q5 */}
+                    <div className="flex flex-col border border-gray-900 rounded-xl overflow-hidden bg-gray-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAccordions(prev => prev.includes('q5') ? prev.filter(x => x !== 'q5') : [...prev, 'q5'])}
+                        className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
+                      >
+                        <span>Q5: What is PDF-Lib for this, and is it using my data?</span>
+                        <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q5') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {expandedAccordions.includes('q5') && (
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-455 text-[11px] leading-relaxed">
+                          PDF-Lib is a pure JavaScript library that reads, modifies, and compiles PDF binary structures directly in the browser's memory. It does not collect, store, or transmit your data. The program is fully offline-able because all code libraries (Vite bundles, PDF.js, PDF-lib, JSZip) are served directly to your browser cache, running independently of the internet once loaded.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-gray-900 border-t border-gray-850 p-4 text-center">
+            <div className="bg-gray-900 border-t border-gray-850 p-4 text-center shrink-0">
               <button
                 type="button"
                 onClick={() => setInfoOpen(false)}
