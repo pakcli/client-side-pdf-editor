@@ -970,7 +970,7 @@ const dictionary = {
 // --- SUB-COMPONENTS FOR DRAG & DROP REORDERING ---
 
 // Sortable item wrapper for PDF Page thumbnails
-function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc, pageWord }) {
+function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc, pageWord, onPreview }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const canvasRef = useRef(null);
 
@@ -1003,8 +1003,19 @@ function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc, p
       {...listeners}
       className="bg-gray-900 border border-gray-800 rounded-lg p-1 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing hover:border-purple-500/50 transition-colors group relative h-full"
     >
-      <div className="relative overflow-hidden rounded bg-white shadow-lg w-full flex items-center justify-center">
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onPreview(index);
+        }}
+        className="relative overflow-hidden rounded bg-white shadow-lg w-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity group-hover:ring-2 group-hover:ring-purple-500/30"
+      >
         <canvas ref={canvasRef} className="w-full h-auto object-contain block" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+          <span className="text-white text-[11px] font-bold bg-black/75 px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-lg border border-gray-800/50">
+            🔍 Zoom Page
+          </span>
+        </div>
       </div>
       <span className="text-base font-semibold text-gray-300 mt-1.5 group-hover:text-purple-400 transition-colors">
         {pageWord || "Page"} {index + 1}
@@ -1013,8 +1024,52 @@ function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc, p
   );
 }
 
+// Page thumbnail item for PDF page extraction
+function ExtractPageThumbnail({ index, pdfDoc, renderTrigger, isSelected, onToggle, pageWord }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    if (pdfDoc && canvasRef.current) {
+      renderPageToCanvas(pdfDoc, index + 1, canvasRef.current, 0.4).then(() => {
+        if (!active) return;
+      }).catch(err => console.error("Extract thumbnail render error", err));
+    }
+    return () => {
+      active = false;
+    };
+  }, [pdfDoc, index, renderTrigger]);
+
+  return (
+    <div
+      onClick={onToggle}
+      className={`bg-gray-900 border rounded-lg p-1 flex flex-col items-center justify-center cursor-pointer transition-all duration-250 group relative ${
+        isSelected
+          ? 'border-purple-500 ring-2 ring-purple-500/30'
+          : 'border-gray-800 hover:border-gray-700'
+      }`}
+    >
+      <div className="relative overflow-hidden rounded bg-white shadow-lg w-full flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-auto object-contain block" />
+        {isSelected && (
+          <div className="absolute inset-0 bg-purple-600/10 flex items-center justify-center">
+            <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center shadow-lg text-sm font-bold animate-scale-up">
+              ✓
+            </div>
+          </div>
+        )}
+      </div>
+      <span className={`text-base font-semibold mt-1.5 transition-colors ${
+        isSelected ? 'text-purple-400 font-bold' : 'text-gray-300 group-hover:text-gray-200'
+      }`}>
+        {pageWord} {index + 1}
+      </span>
+    </div>
+  );
+}
+
 // Sortable item wrapper for Merge Files list
-function SortableFileItem({ id, file, onRemove }) {
+function SortableFileItem({ id, file, onRemove, cols }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1023,27 +1078,73 @@ function SortableFileItem({ id, file, onRemove }) {
     touchAction: 'none',
   };
 
+  const isCompactCard = cols >= 5;
+
+  if (isCompactCard) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="relative bg-gray-900 border border-gray-800 hover:border-purple-500/30 rounded-lg p-3 cursor-move flex flex-col items-center justify-center text-center group h-32"
+      >
+        {/* Drag handle area */}
+        <div className="absolute inset-0 cursor-move" {...attributes} {...listeners} />
+        
+        {/* File icon */}
+        <div className="relative z-10 w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center text-lg mb-2 pointer-events-none">
+          📄
+        </div>
+
+        {/* File Info */}
+        <div className="relative z-10 flex flex-col items-center w-full pointer-events-none">
+          <span className="text-[11px] font-semibold text-gray-200 truncate w-full px-1">
+            {file.name}
+          </span>
+          <span className="text-[9px] text-gray-500 mt-0.5">
+            {(file.size / (1024 * 1024)).toFixed(2)} MB
+          </span>
+        </div>
+
+        {/* Delete Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(id);
+          }}
+          className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors font-bold text-xs z-20 cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  // Row Layout for cols === 1 or 2
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-purple-500/30 rounded-lg p-3 cursor-move"
+      className="flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-purple-500/30 rounded-lg p-3 cursor-move relative"
     >
-      <div className="flex items-center gap-3" {...attributes} {...listeners}>
+      <div className="flex items-center gap-3 w-[85%]" {...attributes} {...listeners}>
         <span className="text-gray-500">☰</span>
-        <div className="flex flex-col text-left">
-          <span className="text-xs font-semibold text-gray-200 truncate max-w-[200px] md:max-w-[300px]">
+        <div className="flex flex-col text-left truncate">
+          <span className="text-xs font-semibold text-gray-200 truncate">
             {file.name}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-[10px] text-gray-500">
             {(file.size / (1024 * 1024)).toFixed(2)} MB
           </span>
         </div>
       </div>
       <button
         type="button"
-        onClick={() => onRemove(id)}
-        className="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-full transition-colors font-bold text-sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(id);
+        }}
+        className="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-full transition-colors font-bold text-sm z-10 cursor-pointer"
       >
         ✕
       </button>
@@ -1123,6 +1224,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
+  const [previewPageIdx, setPreviewPageIdx] = useState(null);
+  const [workspaceCols, setWorkspaceCols] = useState(5);
   const [expandedAccordions, setExpandedAccordions] = useState([]);
   const [faqOpen, setFaqOpen] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState('en');
@@ -1208,6 +1311,21 @@ export default function App() {
     })
   );
 
+  const modalCanvasRef = useRef(null);
+
+  // Render high-res fullscreen preview page
+  useEffect(() => {
+    let active = true;
+    if (previewPageIdx !== null && pdfjsDoc && modalCanvasRef.current) {
+      renderPageToCanvas(pdfjsDoc, previewPageIdx + 1, modalCanvasRef.current, 1.5).then(() => {
+        if (!active) return;
+      }).catch(err => console.error("Modal page preview render error", err));
+    }
+    return () => {
+      active = false;
+    };
+  }, [previewPageIdx, pdfjsDoc, renderTrigger]);
+
   // Reset tool states when a file is closed
   const resetFileState = () => {
     setOriginalBytes(null);
@@ -1222,8 +1340,11 @@ export default function App() {
     setSelectedOverlayIdx(null);
     setShowCloseConfirm(false);
     setPageOrder([]);
+    setPreviewPageIdx(null);
+    setWorkspaceCols(5);
     setMergeFiles([]);
     setExtractedImages([]);
+    setExtractRange('');
   };
 
   // --- PDF RECONSTRUCTION LOGIC ---
@@ -1449,6 +1570,80 @@ export default function App() {
     setActiveTool(null);
   };
 
+  // Helper to parse range string like "1, 3-5, 7" into a Set of 0-based page indices
+  const parseRangeToSet = (rangeStr, total) => {
+    const indices = new Set();
+    if (!rangeStr) return indices;
+    const parts = rangeStr.split(',');
+    for (let part of parts) {
+      part = part.trim();
+      if (part.includes('-')) {
+        const [startStr, endStr] = part.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        if (!isNaN(start) && !isNaN(end)) {
+          const min = Math.min(start, end);
+          const max = Math.max(start, end);
+          for (let i = min; i <= max; i++) {
+            if (i >= 1 && i <= total) {
+              indices.add(i - 1);
+            }
+          }
+        }
+      } else {
+        const val = parseInt(part, 10);
+        if (!isNaN(val) && val >= 1 && val <= total) {
+          indices.add(val - 1);
+        }
+      }
+    }
+    return indices;
+  };
+
+  // Helper to format a Set of 0-based page indices into a range string like "1, 3-5, 7"
+  const formatSetToRange = (indexSet) => {
+    const sorted = Array.from(indexSet).sort((a, b) => a - b);
+    if (sorted.length === 0) return '';
+    const ranges = [];
+    let start = sorted[0];
+    let end = sorted[0];
+    
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === end + 1) {
+        end = sorted[i];
+      } else {
+        if (start === end) {
+          ranges.push(`${start + 1}`);
+        } else {
+          ranges.push(`${start + 1}-${end + 1}`);
+        }
+        start = sorted[i];
+        end = sorted[i];
+      }
+    }
+    if (start === end) {
+      ranges.push(`${start + 1}`);
+    } else {
+      ranges.push(`${start + 1}-${end + 1}`);
+    }
+    return ranges.join(', ');
+  };
+
+  const isPageSelectedForExtract = (index) => {
+    const set = parseRangeToSet(extractRange, totalPages);
+    return set.has(index);
+  };
+
+  const toggleExtractPage = (index) => {
+    const set = parseRangeToSet(extractRange, totalPages);
+    if (set.has(index)) {
+      set.delete(index);
+    } else {
+      set.add(index);
+    }
+    setExtractRange(formatSetToRange(set));
+  };
+
   const handleSaveExtractPages = async () => {
     if (!extractRange.trim()) {
       alert('Please enter a valid page range (e.g. 1, 3-5).');
@@ -1535,7 +1730,7 @@ export default function App() {
       const versionLabel = versions[activeVersionIndex]?.label || 'Original';
       const safeLabel = versionLabel.replace(/[^a-zA-Z0-9_-]/g, '_');
       const finalName = `${baseName}_${dateStr}_v${activeVersionIndex + 1}_${safeLabel}.pdf`;
-      
+
       link.download = finalName;
       link.click();
     } catch (err) {
@@ -1553,7 +1748,7 @@ export default function App() {
       const zip = new JSZip();
       const baseName = fileName.replace(/\.[^/.]+$/, "");
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      
+
       for (let i = 0; i < versions.length; i++) {
         const ver = versions[i];
         const bytes = await applyVersionOps(originalBytes, ver.ops);
@@ -1561,7 +1756,7 @@ export default function App() {
         const finalName = `${baseName}_${dateStr}_v${i + 1}_${safeLabel}.pdf`;
         zip.file(finalName, bytes);
       }
-      
+
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(zipBlob);
@@ -1581,7 +1776,7 @@ export default function App() {
     try {
       const baseName = fileName.replace(/\.[^/.]+$/, "");
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      
+
       for (let i = 0; i < versions.length; i++) {
         const ver = versions[i];
         const bytes = await applyVersionOps(originalBytes, ver.ops);
@@ -1813,7 +2008,7 @@ export default function App() {
   const renderSidebarContent = () => (
     <>
       {/* Dashboard Action List */}
-      <div className="p-4 border-b border-gray-900 bg-gray-900/10">
+      <div className="p-4 border-b border-gray-900 bg-gray-900/10 shrink-0">
         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">{dictionary[currentLanguage]?.availableActions || "Available Actions"}</span>
         <div className="flex flex-wrap gap-1.5">
           {[
@@ -1843,7 +2038,7 @@ export default function App() {
       </div>
 
       {/* Active Tool Parameters Panel */}
-      <div className="flex-1 p-5 border-b border-gray-900">
+      <div className="flex-1 p-5 border-b border-gray-900 overflow-y-auto min-h-0">
 
         {/* TOOL: REORDER */}
         {activeTool === 'reorder' && (
@@ -2189,7 +2384,7 @@ export default function App() {
       </div>
 
       {/* Version History Sidebar Control */}
-      <div className="p-5 flex flex-col gap-4 text-left">
+      <div className="p-5 flex flex-col gap-4 text-left shrink-0">
         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block">{dictionary[currentLanguage]?.versionHistory || "Version History"}</span>
         <div id="version-history-list" className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
           {versions.map((ver, idx) => {
@@ -2221,8 +2416,8 @@ export default function App() {
                     disabled={isActive}
                     className="text-sm font-bold text-purple-400 hover:underline px-1 py-0.5 cursor-pointer disabled:text-gray-500 disabled:no-underline disabled:cursor-default"
                   >
-                    {isActive 
-                      ? (currentLanguage === 'id' ? 'Sedang Dilihat' : currentLanguage === 'es' ? 'Viendo' : currentLanguage === 'ar' ? 'معاينة' : currentLanguage === 'jv' ? 'Dipirsani' : 'Viewing') 
+                    {isActive
+                      ? (currentLanguage === 'id' ? 'Sedang Dilihat' : currentLanguage === 'es' ? 'Viendo' : currentLanguage === 'ar' ? 'معاينة' : currentLanguage === 'jv' ? 'Dipirsani' : 'Viewing')
                       : (currentLanguage === 'id' ? 'Pratinjau' : currentLanguage === 'es' ? 'Previsualizar' : currentLanguage === 'ar' ? 'عرض' : currentLanguage === 'jv' ? 'Pratinjau' : 'Preview')}
                   </button>
 
@@ -2259,7 +2454,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-950 text-gray-100 font-sans antialiased">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-950 text-gray-100 font-sans antialiased">
 
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-900 bg-gray-950/80 backdrop-blur-md px-3 md:px-5 py-2 md:py-2.5">
@@ -2319,11 +2514,10 @@ export default function App() {
                         setCurrentLanguage(lang.code);
                         setLangOpen(false);
                       }}
-                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold cursor-pointer transition-all ${
-                        currentLanguage === lang.code
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold cursor-pointer transition-all ${currentLanguage === lang.code
                           ? 'bg-purple-600/10 text-purple-400 border border-purple-500/20'
                           : 'text-gray-400 hover:bg-gray-900/40 border border-transparent'
-                      }`}
+                        }`}
                     >
                       <span className="text-sm shrink-0 flex items-center justify-start gap-1 w-9">
                         {lang.isSubLang ? (
@@ -2419,19 +2613,38 @@ export default function App() {
                   <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
                     {dictionary[currentLanguage]?.filesToMerge || "Files to Merge"} ({mergeFiles.length}/10)
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setMergeFiles([])}
-                    className="text-xs text-red-400 hover:underline"
-                  >
-                    {dictionary[currentLanguage]?.clearAll || "Clear All"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 bg-gray-900/60 border border-gray-850 p-0.5 rounded-lg shrink-0 scale-90 origin-right">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Cols:</span>
+                      {[1, 2, 5, 10].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setWorkspaceCols(num)}
+                          className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                            workspaceCols === num
+                              ? 'bg-purple-600 text-white shadow'
+                              : 'text-gray-400 hover:text-gray-250'
+                          }`}
+                        >
+                          {num === 1 ? '1' : num}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMergeFiles([])}
+                      className="text-xs text-red-400 hover:underline cursor-pointer"
+                    >
+                      {dictionary[currentLanguage]?.clearAll || "Clear All"}
+                    </button>
+                  </div>
                 </div>
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEndFile}>
                   <SortableContext items={mergeFiles.map(m => m.id)}>
-                    <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+                    <div className={`grid ${workspaceCols === 1 ? 'grid-cols-1' : workspaceCols === 2 ? 'grid-cols-2' : workspaceCols === 5 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10'} gap-2.5 max-h-[320px] overflow-y-auto pr-1`}>
                       {mergeFiles.map(m => (
-                        <SortableFileItem key={m.id} id={m.id} file={m.file} onRemove={removeMergeFile} />
+                        <SortableFileItem key={m.id} id={m.id} file={m.file} onRemove={removeMergeFile} cols={workspaceCols} />
                       ))}
                     </div>
                   </SortableContext>
@@ -2472,8 +2685,8 @@ export default function App() {
                 📂
               </div>
               <p className="text-sm font-semibold text-gray-300">
-                {activeTool === 'merge' 
-                  ? (dictionary[currentLanguage]?.dropMerge || 'Drop 2–10 PDF files to merge') 
+                {activeTool === 'merge'
+                  ? (dictionary[currentLanguage]?.dropMerge || 'Drop 2–10 PDF files to merge')
                   : (dictionary[currentLanguage]?.dropSingle || 'Drop your PDF file here')}
               </p>
               <p className="text-xs text-gray-500 mt-1.5">
@@ -2532,11 +2745,11 @@ export default function App() {
 
             {/* LEFT COLUMN: PDF Page Previews and drawing canvases */}
             <div className="flex-1 flex flex-col relative overflow-hidden bg-gray-900/40 border-r border-gray-900">
-              
+
               {/* Frozen Zoom Toolbar */}
               {activeTool !== 'reorder' && (
                 <div className="w-full bg-gray-950/80 backdrop-blur-md border-b border-gray-900 px-4 py-2 flex items-center justify-center gap-4 z-20 flex-shrink-0">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setZoomLevel(100)}
                     disabled={zoomLevel === 100}
@@ -2556,7 +2769,7 @@ export default function App() {
                 </div>
               )}
 
-              <div 
+              <div
                 className="flex-1 overflow-auto p-4 md:p-10 flex flex-col gap-8 pb-28 md:pb-10"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -2565,213 +2778,310 @@ export default function App() {
                 style={{ touchAction: 'pan-x pan-y' }}
               >
 
-              {/* Tool Merging & Page Reordering sortable list */}
-              {activeTool === 'reorder' ? (
-                <div className="w-full max-w-3xl">
-                  <div className="flex justify-between items-center mb-6">
-                    <div className="text-left">
-                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.tool_reorder || "Reorder Pages"}</span>
-                      <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.dragRearrange || "Drag thumbnails to rearrange"}</h3>
-                    </div>
-                    <div className="hidden md:flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSaveReorder}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
-                      >
-                        {dictionary[currentLanguage]?.applyAndSave?.replace(" Version", "") || "Apply & Save"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTool(null)}
-                        className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
-                      >
-                        {dictionary[currentLanguage]?.cancel || "Cancel"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEndPage} sensors={sensors}>
-                    <SortableContext items={pageOrder} strategy={rectSortingStrategy}>
-                      <div className="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-                        {pageOrder.map((pageIdx) => (
-                          <SortablePageThumbnail
-                            key={pageIdx}
-                            id={pageIdx}
-                            index={pageIdx}
-                            totalPages={totalPages}
-                            renderTrigger={renderTrigger}
-                            pdfDoc={pdfjsDoc}
-                            pageWord={dictionary[currentLanguage]?.pageWord || "Page"}
-                          />
-                        ))}
+                {/* Tool Merging & Page Reordering sortable list */}
+                {activeTool === 'reorder' ? (
+                  <div className="w-full max-w-full">
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="text-left">
+                        <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.tool_reorder || "Reorder Pages"}</span>
+                        <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.dragRearrange || "Drag thumbnails to rearrange"}</h3>
                       </div>
-                    </SortableContext>
-                  </DndContext>
-                </div>
-              ) : activeTool === 'extract_images' && extractedImages.length > 0 ? (
-                // Image extractor thumbnails view
-                <div className="w-full max-w-3xl text-left">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.extractedImagesTitle || "Image Extractor"}</span>
-                      <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.extractedImagesCount || "Extracted Images"} ({extractedImages.length})</h3>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 bg-gray-900/60 border border-gray-855 p-0.5 rounded-lg shrink-0 scale-90 origin-right">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Cols:</span>
+                          {[1, 2, 5, 10].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setWorkspaceCols(num)}
+                              className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                                workspaceCols === num
+                                  ? 'bg-purple-600 text-white shadow'
+                                  : 'text-gray-400 hover:text-gray-250'
+                              }`}
+                            >
+                              {num === 1 ? '1' : num}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="hidden md:flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveReorder}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.applyAndSave?.replace(" Version", "") || "Apply & Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTool(null)}
+                            className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.cancel || "Cancel"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="hidden md:flex gap-2">
-                      <button
-                        type="button"
-                        onClick={downloadAllImagesZip}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
-                      >
-                        {dictionary[currentLanguage]?.downloadZip || "📦 Download all ZIP"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setExtractedImages([])}
-                        className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
-                      >
-                        {dictionary[currentLanguage]?.back || "Back"}
-                      </button>
+
+                    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEndPage} sensors={sensors}>
+                      <SortableContext items={pageOrder} strategy={rectSortingStrategy}>
+                        <div className={`grid ${workspaceCols === 1 ? 'grid-cols-1' : workspaceCols === 2 ? 'grid-cols-2' : workspaceCols === 5 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10'} gap-3 sm:gap-4 md:gap-5`}>
+                          {pageOrder.map((pageIdx) => (
+                            <SortablePageThumbnail
+                              key={pageIdx}
+                              id={pageIdx}
+                              index={pageIdx}
+                              totalPages={totalPages}
+                              renderTrigger={renderTrigger}
+                              pdfDoc={pdfjsDoc}
+                              pageWord={dictionary[currentLanguage]?.pageWord || "Page"}
+                              onPreview={setPreviewPageIdx}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  </div>
+                ) : activeTool === 'extract_pages' ? (
+                  <div className="w-full max-w-full">
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="text-left">
+                        <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.tool_extract_pages || "Extract Pages"}</span>
+                        <h3 className="text-lg font-bold text-gray-200">Select pages to extract</h3>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 bg-gray-900/60 border border-gray-855 p-0.5 rounded-lg shrink-0 scale-90 origin-right">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Cols:</span>
+                          {[1, 2, 5, 10].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setWorkspaceCols(num)}
+                              className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                                workspaceCols === num
+                                  ? 'bg-purple-600 text-white shadow'
+                                  : 'text-gray-400 hover:text-gray-250'
+                              }`}
+                            >
+                              {num === 1 ? '1' : num}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="hidden md:flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveExtractPages}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.applyAndSave?.replace(" Version", "") || "Apply & Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTool(null)}
+                            className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.cancel || "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={`grid ${workspaceCols === 1 ? 'grid-cols-1' : workspaceCols === 2 ? 'grid-cols-2' : workspaceCols === 5 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10'} gap-3 sm:gap-4 md:gap-5`}>
+                      {Array.from({ length: totalPages }).map((_, idx) => (
+                        <ExtractPageThumbnail
+                          key={idx}
+                          index={idx}
+                          pdfDoc={pdfjsDoc}
+                          renderTrigger={renderTrigger}
+                          isSelected={isPageSelectedForExtract(idx)}
+                          onToggle={() => toggleExtractPage(idx)}
+                          pageWord={dictionary[currentLanguage]?.pageWord || "Page"}
+                        />
+                      ))}
                     </div>
                   </div>
+                ) : activeTool === 'extract_images' && extractedImages.length > 0 ? (
+                  // Image extractor thumbnails view
+                  <div className="w-full max-w-full text-left">
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.extractedImagesTitle || "Image Extractor"}</span>
+                        <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.extractedImagesCount || "Extracted Images"} ({extractedImages.length})</h3>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 bg-gray-900/60 border border-gray-855 p-0.5 rounded-lg shrink-0 scale-90 origin-right">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Cols:</span>
+                          {[1, 2, 5, 10].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setWorkspaceCols(num)}
+                              className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-all ${
+                                workspaceCols === num
+                                  ? 'bg-purple-600 text-white shadow'
+                                  : 'text-gray-400 hover:text-gray-250'
+                              }`}
+                            >
+                              {num === 1 ? '1' : num}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="hidden md:flex gap-2">
+                          <button
+                            type="button"
+                            onClick={downloadAllImagesZip}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.downloadZip || "📦 Download all ZIP"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExtractedImages([])}
+                            className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
+                          >
+                            {dictionary[currentLanguage]?.back || "Back"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {extractedImages.map((img, idx) => (
-                      <div key={idx} className="bg-gray-950 border border-gray-900 rounded-xl p-3 flex flex-col">
-                        <img src={img.dataUrl} alt={img.name} className="max-h-[140px] w-full object-contain bg-gray-900 rounded" />
-                        <span className="text-xs text-gray-400 mt-2 truncate font-mono">{img.name}</span>
-                        <a
-                          href={img.dataUrl}
-                          download={img.name}
-                          className="mt-2 block w-full text-center bg-gray-900 hover:bg-gray-850 border border-gray-850 hover:border-gray-800 text-purple-400 font-semibold text-xs py-1.5 rounded transition-colors"
-                        >
-                          Download
-                        </a>
+                    <div className={`grid ${workspaceCols === 1 ? 'grid-cols-1' : workspaceCols === 2 ? 'grid-cols-2' : workspaceCols === 5 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10'} gap-4`}>
+                      {extractedImages.map((img, idx) => (
+                        <div key={idx} className="bg-gray-950 border border-gray-900 rounded-xl p-3 flex flex-col">
+                          <img src={img.dataUrl} alt={img.name} className="max-h-[140px] w-full object-contain bg-gray-900 rounded" />
+                          <span className="text-xs text-gray-400 mt-2 truncate font-mono">{img.name}</span>
+                          <a
+                            href={img.dataUrl}
+                            download={img.name}
+                            className="mt-2 block w-full text-center bg-gray-900 hover:bg-gray-850 border border-gray-850 hover:border-gray-800 text-purple-400 font-semibold text-xs py-1.5 rounded transition-colors"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // Default View: Scrollable vertical stack of rendered PDF page canvas
+                  <div
+                    className="flex flex-col gap-6 origin-top transition-all duration-75 mx-auto"
+                    style={{ width: `${zoomLevel}%`, maxWidth: `${6.2 * zoomLevel}px` }}
+                  >
+                    {activeTool === 'overlays' && (
+                      <div className="w-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-xl p-3 text-center mb-2 font-medium">
+                        💡 Click or tap anywhere on a page below to place your "{overlayTool}" box!
+                      </div>
+                    )}
+
+                    {Array.from({ length: totalPages }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        ref={el => pageContainerRefs.current[idx] = el}
+                        onClick={(e) => addOverlayAtPosition(idx, e)}
+                        className="pdf-page-container w-full relative bg-white border border-gray-800 shadow-xl overflow-hidden cursor-crosshair group"
+                      >
+                        <canvas
+                          ref={el => canvasRefs.current[idx] = el}
+                          className="block w-full h-auto"
+                        />
+
+                        {/* Display drawn edit overlays on top of this page */}
+                        {activeTool === 'overlays' && (
+                          <div className="overlay-container">
+                            {overlays
+                              .map((ov, index) => ({ ...ov, originalIndex: index }))
+                              .filter(ov => ov.pageIndex === idx)
+                              .map(ov => {
+                                const active = selectedOverlayIdx === ov.originalIndex;
+                                return (
+                                  <div
+                                    key={ov.originalIndex}
+                                    onClick={(e) => handleOverlaySelect(ov.originalIndex, e)}
+                                    onMouseDown={(e) => startDragResize(e, ov.originalIndex)}
+                                    onTouchStart={(e) => startDragResize(e, ov.originalIndex)}
+                                    style={{
+                                      left: `${ov.x * 100}%`,
+                                      top: `${ov.y * 100}%`,
+                                      width: `${ov.w * 100}%`,
+                                      height: `${ov.h * 100}%`,
+                                      opacity: ov.opacity !== undefined ? ov.opacity : 1
+                                    }}
+                                    className={`interactive-overlay ${active ? 'active' : ''} flex flex-col justify-between`}
+                                  >
+                                    {ov.type === 'link' && (
+                                      <div className="bg-blue-600/90 text-xs text-white px-1.5 py-0.5 truncate font-mono w-full leading-none">
+                                        🔗 {ov.url || 'No URL'}
+                                      </div>
+                                    )}
+
+                                    {ov.type === 'text' && (
+                                      <div
+                                        style={{
+                                          fontSize: `${ov.fontSize * 0.75}px`, // visual scaling
+                                          color: ov.color || '#000000'
+                                        }}
+                                        className="font-bold p-1 leading-tight select-none truncate w-full h-full text-left"
+                                      >
+                                        {ov.text || 'Text Box'}
+                                      </div>
+                                    )}
+
+                                    {ov.type === 'stamp' && (
+                                      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                                        {ov.imageBytes ? (
+                                          <div className="text-xs font-bold text-purple-400 bg-black/60 px-1 py-0.5 rounded truncate max-w-[80%] font-mono leading-none">
+                                            Stamp Logo
+                                          </div>
+                                        ) : (
+                                          <span className="text-xs text-gray-500 font-bold">Stamp</span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {ov.type === 'image' && (
+                                      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                                        <div className="text-xs font-bold text-gray-300 bg-black/60 px-1 py-0.5 rounded truncate max-w-[80%] font-mono leading-none">
+                                          {ov.imageName || 'Asset Image'}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Close button for overlay */}
+                                    {active && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeOverlay(ov.originalIndex);
+                                        }}
+                                        className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-red-600 border border-white hover:bg-red-700 text-white font-bold text-xs rounded-full flex items-center justify-center shadow transition-colors"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+
+                                    {/* Resize Handle */}
+                                    {active && (
+                                      <div
+                                        onMouseDown={(e) => startDragResize(e, ov.originalIndex, true)}
+                                        onTouchStart={(e) => startDragResize(e, ov.originalIndex, true)}
+                                        className="resize-handle"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                // Default View: Scrollable vertical stack of rendered PDF page canvas
-                <div 
-                  className="flex flex-col gap-6 origin-top transition-all duration-75 mx-auto" 
-                  style={{ width: `${zoomLevel}%`, maxWidth: `${6.2 * zoomLevel}px` }}
-                >
-                  {activeTool === 'overlays' && (
-                    <div className="w-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-xl p-3 text-center mb-2 font-medium">
-                      💡 Click or tap anywhere on a page below to place your "{overlayTool}" box!
-                    </div>
-                  )}
-
-                  {Array.from({ length: totalPages }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      ref={el => pageContainerRefs.current[idx] = el}
-                      onClick={(e) => addOverlayAtPosition(idx, e)}
-                      className="pdf-page-container w-full relative bg-white border border-gray-800 shadow-xl overflow-hidden cursor-crosshair group"
-                    >
-                      <canvas
-                        ref={el => canvasRefs.current[idx] = el}
-                        className="block w-full h-auto"
-                      />
-
-                      {/* Display drawn edit overlays on top of this page */}
-                      {activeTool === 'overlays' && (
-                        <div className="overlay-container">
-                          {overlays
-                            .map((ov, index) => ({ ...ov, originalIndex: index }))
-                            .filter(ov => ov.pageIndex === idx)
-                            .map(ov => {
-                              const active = selectedOverlayIdx === ov.originalIndex;
-                              return (
-                                <div
-                                  key={ov.originalIndex}
-                                  onClick={(e) => handleOverlaySelect(ov.originalIndex, e)}
-                                  onMouseDown={(e) => startDragResize(e, ov.originalIndex)}
-                                  onTouchStart={(e) => startDragResize(e, ov.originalIndex)}
-                                  style={{
-                                    left: `${ov.x * 100}%`,
-                                    top: `${ov.y * 100}%`,
-                                    width: `${ov.w * 100}%`,
-                                    height: `${ov.h * 100}%`,
-                                    opacity: ov.opacity !== undefined ? ov.opacity : 1
-                                  }}
-                                  className={`interactive-overlay ${active ? 'active' : ''} flex flex-col justify-between`}
-                                >
-                                  {ov.type === 'link' && (
-                                    <div className="bg-blue-600/90 text-xs text-white px-1.5 py-0.5 truncate font-mono w-full leading-none">
-                                      🔗 {ov.url || 'No URL'}
-                                    </div>
-                                  )}
-
-                                  {ov.type === 'text' && (
-                                    <div
-                                      style={{
-                                        fontSize: `${ov.fontSize * 0.75}px`, // visual scaling
-                                        color: ov.color || '#000000'
-                                      }}
-                                      className="font-bold p-1 leading-tight select-none truncate w-full h-full text-left"
-                                    >
-                                      {ov.text || 'Text Box'}
-                                    </div>
-                                  )}
-
-                                  {ov.type === 'stamp' && (
-                                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                                      {ov.imageBytes ? (
-                                        <div className="text-xs font-bold text-purple-400 bg-black/60 px-1 py-0.5 rounded truncate max-w-[80%] font-mono leading-none">
-                                          Stamp Logo
-                                        </div>
-                                      ) : (
-                                        <span className="text-xs text-gray-500 font-bold">Stamp</span>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {ov.type === 'image' && (
-                                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                                      <div className="text-xs font-bold text-gray-300 bg-black/60 px-1 py-0.5 rounded truncate max-w-[80%] font-mono leading-none">
-                                        {ov.imageName || 'Asset Image'}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Close button for overlay */}
-                                  {active && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeOverlay(ov.originalIndex);
-                                      }}
-                                      className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-red-600 border border-white hover:bg-red-700 text-white font-bold text-xs rounded-full flex items-center justify-center shadow transition-colors"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
-
-                                  {/* Resize Handle */}
-                                  {active && (
-                                    <div
-                                      onMouseDown={(e) => startDragResize(e, ov.originalIndex, true)}
-                                      onTouchStart={(e) => startDragResize(e, ov.originalIndex, true)}
-                                      className="resize-handle"
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
             {/* Desktop Sidebar (hidden on mobile viewports) */}
-            <aside className="hidden md:flex w-80 bg-gray-950 border-l border-gray-900 flex-col h-full overflow-y-auto">
+            <aside className="hidden md:flex w-80 bg-gray-950 border-l border-gray-900 flex-col h-full overflow-hidden">
               {renderSidebarContent()}
             </aside>
 
@@ -2806,7 +3116,7 @@ export default function App() {
                 {!activeTool ? (
                   <>
                     <div className="text-xs text-gray-500 w-full text-left font-medium">
-                      Current Active Version: 
+                      Current Active Version:
                     </div>
                     <div className="flex items-center justify-between gap-2 w-full">
                       <button
@@ -3266,6 +3576,75 @@ export default function App() {
                 ✕ Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN PAGE PREVIEW MODAL */}
+      {previewPageIdx !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6 animate-fade-in select-none">
+          {/* Close Backdrop Click */}
+          <div className="absolute inset-0" onClick={() => setPreviewPageIdx(null)} />
+
+          {/* Modal Content */}
+          <div className="relative z-10 bg-gray-950 border border-gray-800 rounded-2xl max-w-xl md:max-w-2xl w-full flex flex-col overflow-hidden shadow-2xl h-[90vh]">
+
+            {/* Modal Header */}
+            <div className="p-4 border-b border-gray-900 bg-gray-900/10 flex items-center justify-between shrink-0">
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">
+                  {dictionary[currentLanguage]?.tool_reorder || "Reorder Pages"} — Preview
+                </span>
+                <h3 className="text-sm font-bold text-gray-200">
+                  {dictionary[currentLanguage]?.pageWord || "Page"} {previewPageIdx + 1} / {totalPages}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPageIdx(null)}
+                className="w-8 h-8 flex items-center justify-center bg-gray-900 border border-gray-850 hover:border-red-500/50 hover:text-red-400 text-gray-300 rounded-full cursor-pointer font-bold transition-all text-xs"
+                title="Close Preview"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body: Scrollable canvas render */}
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-900/10">
+              <div className="bg-white rounded-lg shadow-2xl overflow-hidden max-w-full">
+                <canvas ref={modalCanvasRef} className="block max-w-full h-auto object-contain" />
+              </div>
+            </div>
+
+            {/* Modal Footer: Navigation */}
+            <div className="p-4 border-t border-gray-900 bg-gray-900/10 flex items-center justify-between shrink-0 gap-3">
+              <button
+                type="button"
+                disabled={previewPageIdx === 0}
+                onClick={() => setPreviewPageIdx(prev => prev - 1)}
+                className="bg-gray-900 hover:bg-gray-850 border border-gray-850 text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
+              >
+                ◀ Previous
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewPageIdx(null)}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-6 py-2.5 rounded-lg cursor-pointer transition-colors"
+              >
+                Close Preview
+              </button>
+
+              <button
+                type="button"
+                disabled={previewPageIdx === totalPages - 1}
+                onClick={() => setPreviewPageIdx(prev => prev + 1)}
+                className="bg-gray-900 hover:bg-gray-850 border border-gray-850 text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer transition-colors"
+              >
+                Next ▶
+              </button>
+            </div>
+
           </div>
         </div>
       )}
