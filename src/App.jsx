@@ -14,10 +14,963 @@ import {
   extractImagesFromPdf
 } from './utils/pdfHelper';
 
+// Translations dictionary for premium multilingual support
+const dictionary = {
+  en: {
+    specsTitle: "ⓘ PDF Tool Specifications & Q&A",
+    faqTitle: "💡 Frequently Asked Questions (Q&A)",
+    closeSheet: "Close Info Sheet",
+    downloadAll: "Download All Versions",
+    limits: "File Size Limits",
+    privacy: "Privacy Protection",
+    session: "Temporary Session History",
+    tech: "Project Info & Tech Stack",
+    limitsDesc: "- Max file upload limit: 50MB (warning shown at 50MB+)\n- Max merge size: 100MB total across files\n- Max merge files: 10 PDF files",
+    privacyDesc: "100% Client-Side execution. Your documents never leave your local device storage. There is no server interaction or database storage.",
+    sessionDesc: "The operation log and version tree are saved in-memory and will be cleared if you refresh the browser page. Download your edits before leaving.",
+    techDesc: "Client-side only processing using React, Vite, Tailwind CSS, and PDF-lib.",
+    q1: "Q1: How does it not use a server?",
+    a1: "The application runs entirely in your local browser sandbox. It reads files locally via HTML5 File APIs (`ArrayBuffer`) and processes/writes them using client-side JavaScript. There are zero backend HTTP calls or database APIs transmitting your documents.",
+    q2: "Q2: How does the workflow work in a client device?",
+    a2_1: "Upload: The PDF is parsed locally using PDF.js.",
+    a2_2: "Editing: Edits (like reordering, page extraction, overlays) are tracked as lightweight JSON operation logs rather than saving massive PDF files, optimizing memory.",
+    a2_3: "Reconstruction: When previewing or saving, `pdf-lib` recompiles the PDF by applying the operation queue step-by-step onto the original file array buffer.",
+    a2_4: "Download: A local Blob URL is generated, allowing the browser to download the file directly from your RAM.",
+    q3: "Q3: What is client-side processing?",
+    a3: "Client-side processing means all computational tasks, rendering, and file manipulations happen directly on the user's local machine (the client) within the browser's execution engine, instead of sending data to a remote cloud server to be processed.",
+    q4: "Q4: What is the tech stack needed?",
+    a4: "The app is built using React, Vite, and Tailwind CSS. It leverages Mozilla's PDF.js to read and render PDF pages onto HTML5 canvas elements, PDF-Lib to create/modify PDF binary bytes offline, and JSZip to bundle files into a ZIP inside the browser.",
+    q5: "Q5: What is PDF-Lib for this, and is it using my data?",
+    a5: "PDF-Lib is a pure JavaScript library that reads, modifies, and compiles PDF binary structures directly in the browser's memory. It does not collect, store, or transmit your data. The program is fully offline-able because all code libraries (Vite bundles, PDF.js, PDF-lib, JSZip) are served directly to your browser cache, running independently of the internet once loaded.",
+    appTitle: "Offline PDF Toolbox",
+    appDesc: "Privacy guaranteed. Your files are processed entirely inside your browser cache and are never uploaded to any server.",
+    tool_merge: "🔀 Merge PDFs",
+    tool_reorder: "📋 Reorder",
+    tool_extract_pages: "✂️ Extract Pages",
+    tool_link: "🔗 Link Area",
+    tool_stamp: "🖼️ PNG Stamp",
+    tool_text: "🔤 Add Text",
+    tool_image: "🖼️ Add Image",
+    tool_extract_images: "🖼️ Extract Img",
+    combineFilesDesc: "Combine 2-10 files",
+    rearrangePagesDesc: "Rearrange pages",
+    separateRangeDesc: "Separate range subset",
+    drawHyperlinkDesc: "Draw clickable hyperlink",
+    placeStampDesc: "Place transparent stamp",
+    addCustomTextDesc: "Type custom texts",
+    addImageAssetsDesc: "Place jpg/png assets",
+    extractAssetsDesc: "Download PDF assets",
+    dropMerge: "Drop 2–10 PDF files to merge",
+    dropSingle: "Drop your PDF file here",
+    orBrowse: "or click to browse local files",
+    filesToMerge: "Files to Merge",
+    clearAll: "Clear All",
+    mergeAndEdit: "⚡ Merge PDFs & Edit",
+    cancel: "Cancel",
+    resetZoom: "🔄 Reset Zoom",
+    zoomLabel: "🔍 Zoom",
+    applyAndSave: "Apply & Save Version",
+    dragRearrange: "Drag thumbnails to rearrange",
+    extractedImagesTitle: "Image Extractor",
+    extractedImagesCount: "Extracted Images",
+    downloadZip: "📦 Download all ZIP",
+    back: "Back",
+    clickOverlayInstruction: "💡 Click or tap anywhere on a page below to place your item!",
+    overlayEditor: "Overlay Editor",
+    overlayDesc: "Select a type, click on the preview page to place it, then drag/resize to configure.",
+    customText: "Custom Text",
+    size: "Size",
+    color: "Color",
+    opacity: "Opacity",
+    uploadStamp: "Upload Stamp",
+    uploadImage: "Upload Image",
+    noOverlayYet: "No link overlays added yet. Click \"+ Add Row\" or click on the PDF to create one.",
+    noToolSelected: "Select an action card above to start editing this PDF document.",
+    versionHistory: "Version History",
+    availableActions: "Available Actions",
+    warningDiscardTitle: "Discard Forward Versions?",
+    warningDiscardDesc: "Editing an older version will split the version history tree. Future versions beyond this point will be discarded.",
+    continueEdit: "Continue & Edit",
+    closeFileTitle: "Close File?",
+    closeFileDesc: "Are you sure you want to close this file? Any unsaved changes will be lost.",
+    closeFileBtn: "Close File",
+    pageWord: "Page"
+  },
+  id: {
+    specsTitle: "ⓘ Spesifikasi Alat PDF & Tanya Jawab",
+    faqTitle: "💡 Pertanyaan yang Sering Diajukan (Q&A)",
+    closeSheet: "Tutup Lembar Info",
+    limits: "Batas Ukuran File",
+    privacy: "Perlindungan Privasi",
+    session: "Riwayat Sesi Sementara",
+    tech: "Info Proyek & Teknologi",
+    limitsDesc: "- Batas unggah file maks: 50MB (peringatan ditampilkan pada 50MB+)\n- Ukuran penggabungan maks: total 100MB antar file\n- File penggabungan maks: 10 file PDF",
+    privacyDesc: "Eksekusi 100% di Sisi Klien. Dokumen Anda tidak pernah meninggalkan penyimpanan perangkat lokal Anda. Tidak ada interaksi server atau penyimpanan basis data.",
+    sessionDesc: "Log operasi dan pohon versi disimpan di memori dan akan dihapus jika Anda menyegarkan halaman browser. Unduh hasil edit Anda sebelum pergi.",
+    techDesc: "Pemrosesan sisi klien saja menggunakan React, Vite, Tailwind CSS, dan PDF-lib.",
+    q1: "Q1: Bagaimana program ini tidak menggunakan server?",
+    a1: "Aplikasi berjalan sepenuhnya di sandbox browser lokal Anda. Aplikasi membaca file secara lokal melalui HTML5 File API (`ArrayBuffer`) dan memproses/menuliskannya menggunakan JavaScript sisi klien. Tidak ada panggilan HTTP backend atau API basis data yang mengirimkan dokumen Anda.",
+    q2: "Q2: Bagaimana alur kerja di perangkat klien?",
+    a2_1: "Unggah: PDF diurai secara lokal menggunakan PDF.js.",
+    a2_2: "Pengeditan: Edits (seperti penyusunan ulang, ekstraksi halaman, overlay) dilacak sebagai log operasi JSON ringan alih-alih menyimpan file PDF yang besar, sehingga mengoptimalkan memori.",
+    a2_3: "Rekonstruksi: Saat pratinjau atau menyimpan, `pdf-lib` mengompilasi ulang PDF dengan menerapkan antrean operasi langkah demi langkah ke buffer array file asli.",
+    a2_4: "Unduh: URL Blob lokal dibuat, memungkinkan browser mengunduh file langsung dari RAM Anda.",
+    q3: "Q3: Apa itu pemrosesan sisi klien?",
+    a3: "Pemrosesan sisi klien berarti semua tugas komputasi, rendering, dan manipulasi file terjadi langsung di mesin lokal pengguna (klien) dalam mesin eksekusi browser, alih-alih mengirim data ke server cloud jarak jauh untuk diproses.",
+    q4: "Q4: Apa tumpukan teknologi yang dibutuhkan?",
+    a4: "Aplikasi ini dibangun menggunakan React, Vite, dan Tailwind CSS. Aplikasi ini memanfaatkan PDF.js milik Mozilla untuk membaca dan merender halaman PDF ke elemen kanvas HTML5, PDF-Lib untuk membuat/memodifikasi byte biner PDF secara offline, dan JSZip untuk membundel file ke dalam ZIP di dalam browser.",
+    q5: "Q5: Apa itu PDF-Lib, dan apakah menggunakan data saya?",
+    a5: "PDF-Lib adalah pustaka JavaScript murni yang membaca, memodifikasi, yasa, dan mengompilasi struktur biner PDF secara langsung di memori browser Anda. PDF-Lib tidak mengumpulkan, menyimpan, otonom, atau mengirimkan data Anda. Program ini sepenuhnya dapat berjalan secara offline karena semua pustaka kode (bundel Vite, PDF.js, PDF-lib, JSZip) disajikan langsung ke cache browser Anda, berjalan secara independen dari internet setelah dimuat.",
+    appTitle: "Offline PDF Toolbox",
+    appDesc: "Privasi terjamin. File Anda diproses sepenuhnya di dalam cache browser Anda dan tidak pernah diunggah ke server mana pun.",
+    tool_merge: "🔀 Gabung PDF",
+    tool_reorder: "📋 Susun Ulang",
+    tool_extract_pages: "✂️ Ekstrak Halaman",
+    tool_link: "🔗 Area Tautan",
+    tool_stamp: "🖼️ Cap PNG",
+    tool_text: "🔤 Tambah Teks",
+    tool_image: "🖼️ Tambah Gambar",
+    tool_extract_images: "🖼️ Ekstrak Gambar",
+    combineFilesDesc: "Gabungkan 2-10 berkas",
+    rearrangePagesDesc: "Susun ulang halaman",
+    separateRangeDesc: "Pisahkan subset rentang",
+    drawHyperlinkDesc: "Gambar tautan yang dapat diklik",
+    placeStampDesc: "Tempatkan cap transparan",
+    addCustomTextDesc: "Ketik teks khusus",
+    addImageAssetsDesc: "Tempatkan aset jpg/png",
+    extractAssetsDesc: "Unduh aset gambar PDF",
+    dropMerge: "Letakkan 2-10 file PDF untuk digabungkan",
+    dropSingle: "Letakkan file PDF Anda di sini",
+    orBrowse: "atau klik untuk memilih file lokal",
+    filesToMerge: "Berkas Penggabungan",
+    clearAll: "Hapus Semua",
+    mergeAndEdit: "⚡ Gabung PDF & Edit",
+    cancel: "Batal",
+    resetZoom: "🔄 Reset Zoom",
+    zoomLabel: "🔍 Zoom",
+    applyAndSave: "Terapkan & Simpan Versi",
+    dragRearrange: "Seret gambar kagem susun ulang",
+    extractedImagesTitle: "Pengekstrak Gambar",
+    extractedImagesCount: "Gambar Terekstrak",
+    downloadZip: "📦 Unduh semua ZIP",
+    back: "Kembali",
+    clickOverlayInstruction: "💡 Klik atau ketuk di mana saja pada halaman di bawah untuk menempatkan item Anda!",
+    overlayEditor: "Editor Overlay",
+    overlayDesc: "Pilih jenis, klik pada halaman pratinjau untuk menempatkannya, lalu seret/ubah ukuran untuk mengonfigurasi.",
+    customText: "Teks Kustom",
+    size: "Ukuran",
+    color: "Warna",
+    opacity: "Transparansi",
+    uploadStamp: "Unggah Cap",
+    uploadImage: "Unggah Gambar",
+    noOverlayYet: "Belum ada tautan ditambahkan. Klik \"+ Tambah Baris\" atau klik pada PDF untuk membuatnya.",
+    noToolSelected: "Pilih kartu tindakan di atas untuk mulai mengedit dokumen PDF ini.",
+    versionHistory: "Riwayat Versi",
+    availableActions: "Tindakan Tersedia",
+    warningDiscardTitle: "Buang Versi Berikutnya?",
+    warningDiscardDesc: "Mengedit versi lama akan memisahkan pohon riwayat versi. Versi berikutnya setelah titik ini akan dibuang.",
+    continueEdit: "Lanjutkan & Edit",
+    closeFileTitle: "Tutup Berkas?",
+    closeFileDesc: "Apakah Anda yakin ingin menutup file ini? Semua perubahan yang belum disimpan akan hilang.",
+    closeFileBtn: "Tutup Berkas",
+    pageWord: "Halaman"
+  },
+  ar: {
+    specsTitle: "ⓘ مواصفات أداة PDF والأسئلة الشائعة",
+    faqTitle: "💡 الأسئلة الشائعة (س وج)",
+    closeSheet: "إغلاق ورقة المعلومات",
+    limits: "حدود حجم الملف",
+    privacy: "حماية الخصوصية",
+    session: "سجل الجلسة المؤقت",
+    tech: "معلومات المشروع والتقنيات",
+    limitsDesc: "- الحد الأقصى لتحميل الملف: 50 ميجابايت (تحذير عند 50+ ميجابايت)\n- الحجم الأقصى للدمج: 100 ميجابايت إجمالاً\n- الحد الأقصى لملفات الدمج: 10 ملفات PDF",
+    privacyDesc: "تشغيل 100% على جانب العميل. مستنداتك لا تغادر جهازك المحلي أبدًا. لا يوجد تفاعل مع خوادم خارجية أو قواعد بيانات سحابية.",
+    sessionDesc: "سجل العمليات وشجرة النسخ يتم حفظهما في الذاكرة المؤقتة وسيتم مسحهما عند تحديث الصفحة. يرجى تحميل تعديلاتك قبل المغادرة.",
+    techDesc: "معالجة على جانب العميل فقط باستخدام React و Vite و Tailwind CSS و PDF-lib.",
+    q1: "س1: كيف لا يتم استخدام خادم؟",
+    a1: "يعمل التطبيق بالكامل في بيئة المتصفح المحلية الآمنة. يقرأ الملفات محلياً عبر واجهات ملفات HTML5 ويعدلها برمجياً باستخدام جافا سكريبت بدون أي إرسال للبيانات إلى خوادم خارجية.",
+    q2: "س2: كيف يعمل مسار العمل في جهاز العميل؟",
+    a2_1: "الرفع: يتم قراءة ملف الـ PDF محلياً بواسطة مكتبة PDF.js.",
+    a2_2: "التعديل: يتم حفظ التعديلات كملف سجل عمليات JSON خفيف لتوفير الذاكرة.",
+    a2_3: "إعادة البناء: عند العرض أو الحفظ، تقوم مكتبة `pdf-lib` بتجميع الملف مجدداً بتطبيق العمليات خطوة بخطوة.",
+    a2_4: "التحميل: يتم إنشاء رابط محلي آمن لتحميل الملف مباشرة من ذاكرة الرام الخاصة بك.",
+    q3: "س3: ما هي المعالجة على جانب العميل؟",
+    a3: "المعالجة على جانب العميل تعني أن جميع المهام الحسابية، والعرض، وتعديل الملفات تتم مباشرة على جهاز المستخدم دون الحاجة لإرسال البيانات إلى خادم سحابي.",
+    q4: "س4: ما هي التقنيات المستخدمة؟",
+    a4: "تم بناء التطبيق باستخدام React و Vite و Tailwind CSS. ويعتمد على PDF.js للعرض، و PDF-Lib لتعديل البايتات الثنائية للملف، و JSZip لضغط الملفات.",
+    q5: "س5: ما هي مكتبة PDF-Lib وهل تستخدم بياناتي؟",
+    a5: "مكتبة PDF-Lib هي مكتبة جافا سكريبت نقية لقراءة وتعديل ملفات PDF داخل الذاكرة المحلية. لا تقوم بجمع أو تخزين أي بيانات. التطبيق يعمل بالكامل بدون إنترنت بمجرد تحميله في ذاكرة المتصفح المؤقتة.",
+    appTitle: "أدوات PDF دون اتصال بالإنترنت",
+    appDesc: "الخصوصية مضمونة. تتم معالجة ملفاتك بالكامل داخل متصفحك ولا يتم إرسالها إلى أي خادم.",
+    tool_merge: "🔀 دمج ملفات PDF",
+    tool_reorder: "📋 إعادة الترتيب",
+    tool_extract_pages: "✂️ استخراج صفحات",
+    tool_link: "🔗 منطقة رابط",
+    tool_stamp: "🖼️ ختم PNG",
+    tool_text: "🔤 إضافة نص",
+    tool_image: "🖼️ إضافة صورة",
+    tool_extract_images: "🖼️ استخراج صور",
+    combineFilesDesc: "دمج 2-10 ملفات",
+    rearrangePagesDesc: "إعادة ترتيب الصفحات",
+    separateRangeDesc: "فصل نطاق محدد",
+    drawHyperlinkDesc: "رسم رابط قابل للنقر",
+    placeStampDesc: "وضع ختم شفاف",
+    addCustomTextDesc: "كتابة نصوص مخصصة",
+    addImageAssetsDesc: "إضافة صور jpg/png",
+    extractAssetsDesc: "تحميل أصول ملف PDF",
+    dropMerge: "قم بإسقاط 2 إلى 10 ملفات PDF لدمجها",
+    dropSingle: "قم بإسقاط ملف الـ PDF الخاص بك هنا",
+    orBrowse: "أو انقر لتصفح الملفات المحلية",
+    filesToMerge: "الملفات لدمجها",
+    clearAll: "مسح الكل",
+    mergeAndEdit: "⚡ دمج و تحرير",
+    cancel: "إلغاء",
+    resetZoom: "🔄 إعادة ضبط",
+    zoomLabel: "🔍 تكبير",
+    applyAndSave: "تطبيق وحفظ النسخة",
+    dragRearrange: "اسحب الصور المصغرة لإعادة الترتيب",
+    extractedImagesTitle: "مستخرج الصور",
+    extractedImagesCount: "الصور المستخرجة",
+    downloadZip: "📦 تحميل الكل في ملف ZIP",
+    back: "رجوع",
+    clickOverlayInstruction: "💡 انقر أو اضغط في أي مكان على الصفحة لوضع العنصر الخاص بك!",
+    overlayEditor: "محرر الطبقات",
+    overlayDesc: "اختر النوع، انقر على الصفحة لوضعها، ثم اسحب وتغير الحجم للضبط.",
+    customText: "نص مخصص",
+    size: "الحجم",
+    color: "اللون",
+    opacity: "الشفافية",
+    uploadStamp: "رفع ختم",
+    uploadImage: "رفع صورة",
+    noOverlayYet: "لم يتم إضافة روابط بعد. انقر على إضافة صف أو على ملف الـ PDF.",
+    noToolSelected: "اختر عملية من الأعلى لبدء تعديل هذا الملف.",
+    versionHistory: "سجل النسخ",
+    availableActions: "العمليات المتاحة",
+    warningDiscardTitle: "تجاهل النسخ التالية؟",
+    warningDiscardDesc: "تعديل نسخة قديمة سيؤدي إلى تقسيم شجرة النسخ وتجاهل النسخ اللاحقة لها.",
+    continueEdit: "المتابعة والتعديل",
+    closeFileTitle: "إغلاق الملف؟",
+    closeFileDesc: "هل أنت متأكد من رغبتك في إغلاق هذا الملف؟ ستفقد جميع التغييرات غير المحفوظة.",
+    closeFileBtn: "إغلاق الملف",
+    pageWord: "صفحة"
+  },
+  es: {
+    specsTitle: "ⓘ Especificaciones de Herramienta PDF y P&R",
+    faqTitle: "💡 Preguntas Frecuentes (P&R)",
+    closeSheet: "Cerrar Hoja de Información",
+    limits: "Límites de Tamaño de Archivo",
+    privacy: "Protección de Privacidad",
+    session: "Historial de Sesión Temporal",
+    tech: "Información del Proyecto y Stack",
+    limitsDesc: "- Límite de subida de archivo: 50MB (alerta a partir de 50MB+)\n- Tamaño máximo de fusión: 100MB en total\n- Cantidad máxima de archivos: 10 PDFs",
+    privacyDesc: "Ejecución 100% del Lado del Cliente. Tus documentos nunca salen del almacenamiento de tu dispositivo local. No hay interacción con servidores ni almacenamiento en bases de datos.",
+    sessionDesc: "El registro de operaciones y el árbol de versiones se guardan en memoria y se borrarán si recargas la página. Descarga tus ediciones antes de salir.",
+    techDesc: "Procesamiento exclusivo del lado del cliente utilizando React, Vite, Tailwind CSS y PDF-lib.",
+    q1: "Q1: ¿Cómo funciona sin un servidor?",
+    a1: "La aplicación se ejecuta completamente dentro del entorno seguro de tu navegador. Lee los archivos localmente a través de las APIs de archivos de HTML5 y los modifica utilizando JavaScript en el cliente, sin transmitir datos a servidores externos.",
+    q2: "Q2: ¿Cómo es el flujo de trabajo en el dispositivo del cliente?",
+    a2_1: "Subida: El PDF se analiza localmente usando PDF.js.",
+    a2_2: "Edición: Las ediciones se registran como ligeras operaciones JSON para optimizar el uso de memoria.",
+    a2_3: "Reconstrucción: Al previsualizar o guardar, `pdf-lib` recompila el PDF aplicando las operaciones paso a paso sobre el buffer original.",
+    a2_4: "Descarga: Se genera una URL de Blob local que permite descargar el archivo directamente de tu memoria RAM.",
+    q3: "Q3: ¿Qué es el procesamiento del lado del cliente?",
+    a3: "El procesamiento del lado del cliente significa que todas las tareas computacionales, renderizado y manipulación de archivos ocurren en la máquina del usuario final en lugar de en un servidor central.",
+    q4: "Q4: ¿Qué stack tecnológico se utiliza?",
+    a4: "La aplicación está construida con React, Vite y Tailwind CSS. Utiliza PDF.js para visualizar el PDF, PDF-Lib para modificar los bytes binarios y JSZip para empaquetar archivos ZIP.",
+    q5: "Q5: ¿Qué es PDF-Lib y si mis datos están seguros?",
+    a5: "PDF-Lib es una biblioteca de JavaScript pura que manipula estructuras binarias de PDF en memoria. No recopila ni transmite tus datos. La aplicación funciona 100% offline una vez cargada en el caché del navegador.",
+    appTitle: "Caja de Herramientas PDF Offline",
+    appDesc: "Privacidad garantizada. Sus archivos se procesan en la caché del navegador y nunca se suben a ningún servidor.",
+    tool_merge: "🔀 Fusionar PDFs",
+    tool_reorder: "📋 Reordenar",
+    tool_extract_pages: "✂️ Extraer Páginas",
+    tool_link: "🔗 Área de enlace",
+    tool_stamp: "🖼️ Sello PNG",
+    tool_text: "🔤 Añadir Texto",
+    tool_image: "🖼️ Añadir Imagen",
+    tool_extract_images: "🖼️ Extraer Img",
+    combineFilesDesc: "Combinar 2-10 archivos",
+    rearrangePagesDesc: "Reorganizar páginas",
+    separateRangeDesc: "Separar rango de páginas",
+    drawHyperlinkDesc: "Dibujar enlace clicable",
+    placeStampDesc: "Colocar sello transparente",
+    addCustomTextDesc: "Escribir textos personalizados",
+    addImageAssetsDesc: "Colocar imágenes jpg/png",
+    extractAssetsDesc: "Extraer activos del PDF",
+    dropMerge: "Suelte 2-10 archivos PDF para fusionar",
+    dropSingle: "Suelte su archivo PDF aquí",
+    orBrowse: "o haga clic para buscar archivos locales",
+    filesToMerge: "Archivos a fusionar",
+    clearAll: "Borrar Todo",
+    mergeAndEdit: "⚡ Fusionar y Editar",
+    cancel: "Cancelar",
+    resetZoom: "🔄 Restablecer Zoom",
+    zoomLabel: "🔍 Zoom",
+    applyAndSave: "Aplicar y Guardar Versión",
+    dragRearrange: "Arrastre miniaturas para reorganizar",
+    extractedImagesTitle: "Extractor de Imágenes",
+    extractedImagesCount: "Imágenes Extraídas",
+    downloadZip: "📦 Descargar todo en ZIP",
+    back: "Volver",
+    clickOverlayInstruction: "💡 ¡Haga clic en cualquier lugar de la página para colocar su elemento!",
+    overlayEditor: "Editor de Capas",
+    overlayDesc: "Seleccione un tipo, haga clic en la página para colocarlo, luego arrastre/cambie el tamaño.",
+    customText: "Texto Personalizado",
+    size: "Tamaño",
+    color: "Color",
+    opacity: "Opacidad",
+    uploadStamp: "Subir Sello",
+    uploadImage: "Subir Imagen",
+    noOverlayYet: "No se han añadido enlaces. Haga clic en añadir fila o sobre el PDF.",
+    noToolSelected: "Seleccione una acción arriba para comenzar a editar.",
+    versionHistory: "Historial de Versiones",
+    availableActions: "Acciones Disponibles",
+    warningDiscardTitle: "¿Descartar Versiones Siguientes?",
+    warningDiscardDesc: "Editar una versión anterior dividirá el historial. Se descartarán las versiones futuras.",
+    continueEdit: "Continuar y Editar",
+    closeFileTitle: "¿Cerrar Archivo?",
+    closeFileDesc: "¿Está seguro de que desea cerrar este archivo? Todos los cambios no guardados se perderán.",
+    closeFileBtn: "Cerrar Archivo",
+    pageWord: "Página"
+  },
+  jv: {
+    specsTitle: "ⓘ Spesifikasi Piranti PDF & Pitakon",
+    faqTitle: "💡 Pitakon sing Sering Ditakokake (Q&A)",
+    closeSheet: "Tutup Info",
+    limits: "Watesan Ukuran Berkas",
+    privacy: "Perlindungan Privasi",
+    session: "Riwayat Sesi Sawetara",
+    tech: "Info Proyek & Teknologi",
+    limitsDesc: "- Watesan unggah berkas maks: 50MB (wonten pepenget yen 50MB+)\n- Ukuran nggabungake maks: total 100MB antar berkas\n- Gunggunge nggabungake maks: 10 berkas PDF",
+    privacyDesc: "Eksekusi 100% wonten ing Klien. Dokumen panjenengan boten nate medal saking piranti lokal. Boten wonten interaksi server utawi database.",
+    sessionDesc: "Log operasi kaliyan wit versi dipunsimpen wonten memori lan badhe ical menawi kaca browser dipun-refresh. Unduh asil edit sadurunge kesah.",
+    techDesc: "Pemrosesan wonten ing sisi klien kemawon nggunakake React, Vite, Tailwind CSS, lan PDF-lib.",
+    q1: "Q1: Kados pundi program punika boten nggunakake server?",
+    a1: "Aplikasi mlaku sakabehe wonten ing sandbox browser lokal panjenengan. Membaca berkas sacara lokal nggunakake HTML5 File API lan dipunproses nganggo JavaScript sisi klien.",
+    q2: "Q2: Kados pundi alur kerjanipun wonten piranti klien?",
+    a2_1: "Unggah: PDF dipun-urai sacara lokal nganggo PDF.js.",
+    a2_2: "Pengeditan: Edit dipun-lacak minangka log operasi JSON ingkang entheng supados ngirit memori.",
+    a2_3: "Rekonstruksi: Nalika pratinjau utawi nyimpen, `pdf-lib` ngrakit malih PDF kanthi ngecakake operasi siji-siji.",
+    a2_4: "Unduh: URL Blob lokal dipundamel supados saged ngunduh langsung saking RAM.",
+    q3: "Q3: Napa ingkang dipunwastani pemrosesan sisi klien?",
+    a3: "Pemrosesan sisi klien tegesipun sedaya tugas komputasi, rendering, lan manipulasi berkas kedadosan langsung wonten ing komputer pangguna piyambak.",
+    q4: "Q4: Napa kemawon teknologi ingkang dipunginakaken?",
+    a4: "Aplikasi punika dipundamel nganggo React, Vite, lan Tailwind CSS. Uga nggunakake PDF.js, PDF-Lib, lan JSZip.",
+    q5: "Q5: Napa PDF-Lib punika, lan punapa ngginakaken data kula?",
+    a5: "PDF-Lib punika pustaka JavaScript murni ingkang maos lan ngrakit PDF wonten ing memori browser. Boten mendhet utawi nyimpen data panjenengan. Aplikasi saged mlaku offline sakwese dipun-dimuat.",
+    appTitle: "Kotak Piranti PDF Offline",
+    appDesc: "Privasi terjamin. Berkas panjenengan dipunproses wonten ing memori browser lan boten nate dipungunggah dhateng server.",
+    tool_merge: "🔀 Gabung PDF",
+    tool_reorder: "📋 Susun Ulang",
+    tool_extract_pages: "✂️ Ekstrak Kaca",
+    tool_link: "🔗 Area Tautan",
+    tool_stamp: "🖼️ Cap PNG",
+    tool_text: "🔤 Tambah Teks",
+    tool_image: "🖼️ Tambah Gambar",
+    tool_extract_images: "🖼️ Ekstrak Gambar",
+    combineFilesDesc: "Nggabungake 2-10 berkas",
+    rearrangePagesDesc: "Nata malih kaca",
+    separateRangeDesc: "Misahake rentang kaca",
+    drawHyperlinkDesc: "Nggambar tautan",
+    placeStampDesc: "Nyelehake cap transparan",
+    addCustomTextDesc: "Nulis teks khusus",
+    addImageAssetsDesc: "Nyelehake gambar jpg/png",
+    extractAssetsDesc: "Unduh gambar saking PDF",
+    dropMerge: "Selehake 2-10 berkas PDF kagem nggabung",
+    dropSingle: "Selehake berkas PDF panjenengan wonten mriki",
+    orBrowse: "utawi klik kagem pados berkas lokal",
+    filesToMerge: "Berkas sing Digabung",
+    clearAll: "Ical Sedanten",
+    mergeAndEdit: "⚡ Gabung & Edit",
+    cancel: "Batal",
+    resetZoom: "🔄 Reset Zoom",
+    zoomLabel: "🔍 Zoom",
+    applyAndSave: "Cakake & Simpen Versi",
+    dragRearrange: "Seret gambar kagem nata malih",
+    extractedImagesTitle: "Pengekstrak Gambar",
+    extractedImagesCount: "Gambar sing Di-ekstrak",
+    downloadZip: "📦 Unduh sedanten ZIP",
+    back: "Wangsul",
+    clickOverlayInstruction: "💡 Klik utawi tutul wonten pundi kemawon ing kaca ngisor kagem nyelehake barang!",
+    overlayEditor: "Editor Overlay",
+    overlayDesc: "Pilih jenis, klik kaca pratinjau kagem nyelehake, banjur seret/atur ukuran.",
+    customText: "Teks Khusus",
+    size: "Ukuran",
+    color: "Warna",
+    opacity: "Transparansi",
+    uploadStamp: "Unggah Cap",
+    uploadImage: "Unggah Gambar",
+    noOverlayYet: "Dereng wonten tautan. Klik \"+ Tambah Baris\" utawi klik wonten PDF.",
+    noToolSelected: "Pilih tindakan wonten ing nginggil kagem ngedit PDF punika.",
+    versionHistory: "Riwayat Versi",
+    availableActions: "Tindakan sing Wonten",
+    warningDiscardTitle: "Bucal Versi Salajengipun?",
+    warningDiscardDesc: "Ngedit versi lami badhe misahake riwayat versi. Versi salajengipun badhe dipunbucal.",
+    continueEdit: "Lajengaken & Edit",
+    closeFileTitle: "Tutup Berkas?",
+    closeFileDesc: "Punapa panjenengan yakin badhe nutup berkas punika? Sedaya owah-owahan badhe ical.",
+    closeFileBtn: "Tutup Berkas",
+    pageWord: "Kaca"
+  },
+  ja: {
+    specsTitle: "ⓘ PDFツールの仕様とQ&A",
+    faqTitle: "💡 よくある質問 (Q&A)",
+    closeSheet: "情報シートを閉じる",
+    limits: "ファイルサイズの制限",
+    privacy: "プライバシー保護",
+    session: "一時的なセッション履歴",
+    tech: "プロジェクト情報と技術スタック",
+    limitsDesc: "- 最大ファイルアップロード制限：50MB（50MB超で警告表示）\n- 最大結合サイズ：ファイル全体で合計100MB\n- 最大結合ファイル数：10個のPDFファイル",
+    privacyDesc: "100%クライアント側で実行されます。ドキュメントがローカルデバイスのストレージから送信されることはありません。サーバーとの通信やデータベースへの保存はありません。",
+    sessionDesc: "操作ログとバージョンツリーはメモリに保存され、ブラウザのページを更新すると消去されます。ページを離れる前に編集内容をダウンロードしてください。",
+    techDesc: "React、Vite、Tailwind CSS、およびPDF-libを使用したクライアント側のみの処理。",
+    q1: "Q1：サーバーを使用しない仕組みは？",
+    a1: "アプリケーションはブラウザのローカルサンドボックス内だけで動作します。HTML5のFile API（`ArrayBuffer`）を介してファイルをローカルに読み込み、クライアント側のJavaScriptを使用して処理および保存します。ドキュメントを送信するバックエンドのHTTP通信やデータベースAPIは一切ありません。",
+    q2: "Q2：クライアントデバイス内でのワークフローはどのようになりますか？",
+    a2_1: "アップロード：PDFはPDF.jsを使用してローカルで解析されます。",
+    a2_2: "編集：編集内容（並べ替え、ページ抽出、オーバーレイなど）は、大容量のPDFファイルを直接保存するのではなく、軽量なJSON操作ログとして追跡され、メモリ使用量が最適化されます。",
+    a2_3: "再構築：プレビューまたは保存時に、`pdf-lib`がオリジナルのファイルアレイバッファに対して操作キューをステップバイステップで適用し、PDFを再コンパイルします。",
+    a2_4: "ダウンロード：ローカルBlob URLが生成され、ブラウザはRAMから直接ファイルをダウンロードできます。",
+    q3: "Q3：クライアント側処理とは何ですか？",
+    a3: "クライアント側処理とは、データを処理のためにリモートクラウドサーバーに送信するのではなく、すべての計算タスク、レンダリング、ファイル操作をユーザーのローカルマシン（クライアント）のブラウザ実行エンジン内で直接行うことを意味します。",
+    q4: "Q4：必要な技術スタックは何ですか？",
+    a4: "React、Vite、Tailwind CSSを使用して構築されています。MozillaのPDF.jsを利用してPDFページをHTML5キャンバス要素に読み込んで描画し、PDF-Libを使用してオフラインでPDFバイナリバイトを作成/変更し、JSZipを使用してブラウザ内でファイルをZIPにバンドルします。",
+    q5: "Q5：PDF-Libの役割は何ですか？また、私のデータは使用されますか？",
+    a5: "PDF-Libは、ブラウザのメモリ内でPDFバイナリ構造を直接読み取り、変更し、コンパイルする純粋なJavaScriptライブラリです。お客様のデータを収集、保存、または送信することはありません。読み込み後はインターネットから独立して動作するため、すべてのコードライブラリはブラウザキャッシュに直接提供され、完全にオフラインで動作可能です。",
+    appTitle: "オフラインPDFツールボックス",
+    appDesc: "プライバシーは完全に保護されています。ファイルはブラウザのキャッシュ内でのみ処理され、サーバーにアップロードされることはありません。",
+    tool_merge: "🔀 PDF結合",
+    tool_reorder: "📋 ページ並べ替え",
+    tool_extract_pages: "✂️ ページ抽出",
+    tool_link: "🔗 リンク範囲",
+    tool_stamp: "🖼️ PNGスタンプ",
+    tool_text: "🔤 テキスト追加",
+    tool_image: "🖼️ 画像追加",
+    tool_extract_images: "🖼️ 画像抽出",
+    combineFilesDesc: "2〜10個のファイルを結合",
+    rearrangePagesDesc: "ページの順序を並べ替え",
+    separateRangeDesc: "指定範囲のページを分離",
+    drawHyperlinkDesc: "クリック可能なリンク枠を描画",
+    placeStampDesc: "透過スタンプを配置",
+    addCustomTextDesc: "カスタムテキストを入力",
+    addImageAssetsDesc: "JPG/PNG画像を配置",
+    extractAssetsDesc: "PDF内の画像を保存",
+    dropMerge: "結合する2〜10個のPDFファイルをドロップ",
+    dropSingle: "ここにPDFファイルをドロップ",
+    orBrowse: "またはローカルファイルを参照",
+    filesToMerge: "結合するファイル",
+    clearAll: "すべてクリア",
+    mergeAndEdit: "⚡ 結合して編集",
+    cancel: "キャンセル",
+    resetZoom: "🔄 ズームをリセット",
+    zoomLabel: "🔍 ズーム",
+    applyAndSave: "適用してバージョンを保存",
+    dragRearrange: "サムネイルをドラッグして並べ替え",
+    extractedImagesTitle: "画像抽出ツール",
+    extractedImagesCount: "抽出された画像",
+    downloadZip: "📦 まとめてZIPダウンロード",
+    back: "戻る",
+    clickOverlayInstruction: "💡 下のページ内をクリック/タップしてアイテムを配置します！",
+    overlayEditor: "オーバーレイエディター",
+    overlayDesc: "タイプを選択し、プレビューページ上をクリックして配置後、ドラッグ/サイズ調整を行います。",
+    customText: "カスタムテキスト",
+    size: "サイズ",
+    color: "カラー",
+    opacity: "不透明度",
+    uploadStamp: "スタンプをアップロード",
+    uploadImage: "画像をアップロード",
+    noOverlayYet: "追加されたリンクはありません。「+ 行を追加」をクリックするか、PDFをクリックして作成してください。",
+    noToolSelected: "上のアクションカードを選択して、PDFの編集を開始してください。",
+    versionHistory: "バージョン履歴",
+    availableActions: "利用可能なアクション",
+    warningDiscardTitle: "以降のバージョンを破棄しますか？",
+    warningDiscardDesc: "古いバージョンを編集すると、履歴が分岐し、この時点より先のバージョンが破棄されます。",
+    continueEdit: "続行して編集",
+    closeFileTitle: "ファイルを閉じますか？",
+    closeFileDesc: "このファイルを閉じてもよろしいですか？保存されていない変更はすべて失われます。",
+    closeFileBtn: "ファイルを閉じる",
+    pageWord: "ページ"
+  },
+  zh: {
+    specsTitle: "ⓘ PDF 工具规范及常见问题",
+    faqTitle: "💡 常见问题解答 (Q&A)",
+    closeSheet: "关闭信息表",
+    limits: "文件大小限制",
+    privacy: "隐私保护",
+    session: "临时会话历史",
+    tech: "项目信息与技术栈",
+    limitsDesc: "- 最大文件上传限制：50MB（超过50MB会显示警告）\n- 最大合并大小：所有文件总计100MB\n- 最大合并文件数：10个PDF文件",
+    privacyDesc: "100% 客户端执行。您的文档绝不会离开您的本地设备存储。没有任何服务器交互或数据库存储。",
+    sessionDesc: "操作日志和版本树保存在内存中，刷新浏览器页面将被清除。请在离开前下载您的编辑。",
+    techDesc: "仅使用 React、Vite、Tailwind CSS 和 PDF-lib 进行客户端处理。",
+    q1: "Q1：如何实现不使用服务器？",
+    a1: "该应用完全在您本地的浏览器沙箱中运行。它通过 HTML5 文件 API（`ArrayBuffer`）在本地读取文件，并使用客户端 JavaScript 进行处理和保存。不存在任何向后端发送文档的 HTTP 请求或数据库 API。",
+    q2: "Q2：客户端设备上的工作流程是怎样的？",
+    a2_1: "上传：PDF 在本地使用 PDF.js 解析。",
+    a2_2: "编辑：编辑操作（如重新排序、页面提取、覆盖层等）作为轻量级的 JSON操作日志进行跟踪，而不是保存巨大的 PDF 文件，从而优化了内存使用。",
+    a2_3: "重建：在预览或保存时，`pdf-lib` 通过将操作队列逐步应用到原始文件数组缓冲区来重新编译 PDF。",
+    a2_4: "下载：生成本地 Blob URL，允许浏览器直接从您的内存下载文件。",
+    q3: "Q3：什么是客户端处理？",
+    a3: "客户端处理意味着所有计算任务、渲染和文件操作都直接在用户的本地机器（客户端）的浏览器执行引擎中进行，而不是将数据发送到远程云服务器进行处理。",
+    q4: "Q4：需要什么技术栈？",
+    a4: "该应用使用 React、Vite 和 Tailwind CSS 构建。它利用 Mozilla 的 PDF.js 将 PDF 页面读取并渲染到 HTML5 画布元素上，使用 PDF-Lib 离线创建/修改 PDF 二进制字节，并使用 JSZip 在浏览器内将文件打包为 ZIP。",
+    q5: "Q5：PDF-Lib 的作用是什么？它会使用我的数据吗？",
+    a5: "PDF-Lib 是一个纯 JavaScript 库，在浏览器的内存中直接读取、修改和编译 PDF 二进制结构。它不会收集、存储或传输您的数据。在加载后，所有代码库都直接服务于浏览器缓存，独立于互联网运行，完全支持离线操作。",
+    appTitle: "离线 PDF 工具箱",
+    appDesc: "隐私保障。您的文件完全在浏览器缓存中处理，绝不上传到任何服务器。",
+    tool_merge: "🔀 合并 PDF",
+    tool_reorder: "📋 重新排序",
+    tool_extract_pages: "✂️ 提取页面",
+    tool_link: "🔗 链接区域",
+    tool_stamp: "🖼️ PNG 印章",
+    tool_text: "🔤 添加文本",
+    tool_image: "🖼️ 添加图片",
+    tool_extract_images: "🖼️ 提取图片",
+    combineFilesDesc: "合并 2-10 个文件",
+    rearrangePagesDesc: "重新排列页面顺序",
+    separateRangeDesc: "分离指定范围页面",
+    drawHyperlinkDesc: "绘制可点击的链接框",
+    placeStampDesc: "放置透明印章",
+    addCustomTextDesc: "输入自定义文本",
+    addImageAssetsDesc: "放置 JPG/PNG 图片",
+    extractAssetsDesc: "保存 PDF 中的图片",
+    dropMerge: "拖入 2–10 个 PDF 文件进行合并",
+    dropSingle: "将 PDF 文件拖到此处",
+    orBrowse: "或点击浏览本地文件",
+    filesToMerge: "待合并文件",
+    clearAll: "清除全部",
+    mergeAndEdit: "⚡ 合并并编辑",
+    cancel: "取消",
+    resetZoom: "🔄 重置缩放",
+    zoomLabel: "🔍 缩放",
+    applyAndSave: "应用并保存版本",
+    dragRearrange: "拖拽缩略图以重新排序",
+    extractedImagesTitle: "图片提取工具",
+    extractedImagesCount: "已提取图片",
+    downloadZip: "📦 下载全部 ZIP",
+    back: "返回",
+    clickOverlayInstruction: "💡 在下方页面任意位置点击或轻触即可放置您的项目！",
+    overlayEditor: "覆盖层编辑器",
+    overlayDesc: "选择一个类型，点击预览页面进行放置，然后拖拽/调整大小来进行配置。",
+    customText: "自定义文本",
+    size: "大小",
+    color: "颜色",
+    opacity: "不透明度",
+    uploadStamp: "上传印章",
+    uploadImage: "上传图片",
+    noOverlayYet: "尚未添加链接覆盖层。点击“+ 添加行”或在 PDF 上点击以创建。",
+    noToolSelected: "在上方选择一个操作卡片以开始编辑此 PDF文档。",
+    versionHistory: "版本历史",
+    availableActions: "可用操作",
+    warningDiscardTitle: "放弃后续版本？",
+    warningDiscardDesc: "编辑较旧的版本将拆分版本历史树。此时间点之后的未来版本将被放弃。",
+    continueEdit: "继续并编辑",
+    closeFileTitle: "关闭文件？",
+    closeFileDesc: "您确定要关闭此文件吗？所有未保存的更改都将丢失。",
+    closeFileBtn: "关闭文件",
+    pageWord: "页"
+  },
+  ru: {
+    specsTitle: "ⓘ Спецификации инструмента PDF и вопросы-ответы",
+    faqTitle: "💡 Часто задаваемые вопросы (Q&A)",
+    closeSheet: "Закрыть информационный лист",
+    limits: "Ограничения размера файла",
+    privacy: "Защита конфиденциальности",
+    session: "Временная история сессии",
+    tech: "Информация о проекте и стек технологий",
+    limitsDesc: "- Максимальный размер загрузки: 50 МБ (предупреждение при 50 МБ+)\n- Максимальный размер объединения: всего 100 МБ\n- Максимальное количество объединяемых файлов: 10 файлов PDF",
+    privacyDesc: "Исполнение на 100% на стороне клиента. Ваши документы никогда не покидают ваше локальное хранилище. Взаимодействие с сервером или хранение в базе данных отсутствует.",
+    sessionDesc: "Журнал операций и дерево версий сохраняются в оперативной памяти и будут очищены при обновлении страницы. Скачайте ваши файлы перед выходом.",
+    techDesc: "Обработка исключительно на стороне клиента с использованием React, Vite, Tailwind CSS и PDF-lib.",
+    q1: "Q1: Как это работает без сервера?",
+    a1: "Приложение работает полностью в песочнице вашего локального браузера. Оно читает файлы локально через HTML5 File API (`ArrayBuffer`) и обрабатывает/сохраняет их с помощью JavaScript на стороне клиента. Передача документов на внешние серверы отсутствует.",
+    q2: "Q2: Как устроен рабочий процесс на устройстве клиента?",
+    a2_1: "Загрузка: PDF парсится локально с помощью PDF.js.",
+    a2_2: "Редактирование: Изменения отслеживаются как легковесный журнал операций JSON для оптимизации памяти.",
+    a2_3: "Реконструкция: При предпросмотре или скачивании `pdf-lib` пересобирает PDF, применяя операции пошагово.",
+    a2_4: "Скачивание: Создается локальная ссылка Blob для скачивания файла прямо из оперативной памяти.",
+    q3: "Q3: Что такое обработка на стороне клиента?",
+    a3: "Это означает, что все вычисления, отрисовка и манипуляции с файлами происходят непосредственно на компьютере пользователя в браузере, без отправки данных на удаленный облачный сервер.",
+    q4: "Q4: Какой стек технологий используется?",
+    a4: "Приложение построено на React, Vite и Tailwind CSS. Используются PDF.js для отрисовки страниц, PDF-Lib для модификации бинарной структуры PDF и JSZip для архивации.",
+    q5: "Q5: Что такое PDF-Lib и в безопасности ли мои данные?",
+    a5: "PDF-Lib — это чистая библиотека JavaScript для модификации файлов PDF в оперативной памяти. Она не собирает и не передает ваши данные. Приложение работает автономно после загрузки в кэш.",
+    appTitle: "Локальный PDF Инструментарий",
+    appDesc: "Конфиденциальность гарантирована. Ваши файлы обрабатываются исключительно в браузере и не передаются на сервер.",
+    tool_merge: "🔀 Объединить PDF",
+    tool_reorder: "📋 Переставить страницы",
+    tool_extract_pages: "✂️ Извлечь страницы",
+    tool_link: "🔗 Область ссылки",
+    tool_stamp: "🖼️ Штамп PNG",
+    tool_text: "🔤 Добавить текст",
+    tool_image: "🖼️ Добавить изображение",
+    tool_extract_images: "🖼️ Извлечь картинки",
+    combineFilesDesc: "Объединить 2-10 файлов",
+    rearrangePagesDesc: "Изменить порядок страниц",
+    separateRangeDesc: "Выделить диапазон страниц",
+    drawHyperlinkDesc: "Создать кликабельную ссылку",
+    placeStampDesc: "Поместить прозрачный штамп",
+    addCustomTextDesc: "Ввести произвольный текст",
+    addImageAssetsDesc: "Вставить картинку JPG/PNG",
+    extractAssetsDesc: "Скачать картинки из PDF",
+    dropMerge: "Перетащите 2-10 файлов PDF для объединения",
+    dropSingle: "Перетащите ваш PDF файл сюда",
+    orBrowse: "или выберите файлы на компьютере",
+    filesToMerge: "Файлы для объединения",
+    clearAll: "Очистить всё",
+    mergeAndEdit: "⚡ Объединить и редактировать",
+    cancel: "Отмена",
+    resetZoom: "🔄 Сбросить масштаб",
+    zoomLabel: "🔍 Масштаб",
+    applyAndSave: "Применить и сохранить версию",
+    dragRearrange: "Перетащите миниатюры для сортировки",
+    extractedImagesTitle: "Извлечение картинок",
+    extractedImagesCount: "Извлеченные картинки",
+    downloadZip: "📦 Скачать все в ZIP",
+    back: "Назад",
+    clickOverlayInstruction: "💡 Нажмите в любом месте страницы ниже, чтобы разместить элемент!",
+    overlayEditor: "Редактор слоев",
+    overlayDesc: "Выберите тип, нажмите на страницу для размещения, затем настройте размер.",
+    customText: "Ваш текст",
+    size: "Размер",
+    color: "Цвет",
+    opacity: "Прозрачность",
+    uploadStamp: "Загрузить штамп",
+    uploadImage: "Загрузить картинку",
+    noOverlayYet: "Ссылки еще не добавлены. Нажмите «+ Добавить строку» или кликните по PDF.",
+    noToolSelected: "Выберите действие выше, чтобы начать редактирование PDF.",
+    versionHistory: "История версий",
+    availableActions: "Доступные действия",
+    warningDiscardTitle: "Сбросить последующие версии?",
+    warningDiscardDesc: "Редактирование старой версии разделит историю. Последующие версии будут удалены.",
+    continueEdit: "Продолжить",
+    closeFileTitle: "Закрыть файл?",
+    closeFileDesc: "Вы уверены, что хотите закрыть файл? Несохраненные изменения будут потеряны.",
+    closeFileBtn: "Закрыть файл",
+    pageWord: "Страница"
+  },
+  ga: {
+    specsTitle: "ⓘ Sonraíochtaí Uirlis PDF & Ceisteanna",
+    faqTitle: "💡 Ceisteanna Coitianta (Q&A)",
+    closeSheet: "Dún Bileog Eolais",
+    limits: "Teorainneacha Méid Comhaid",
+    privacy: "Cosaint Príobháideachais",
+    session: "Stair Sheisiún Sealadach",
+    tech: "Eolas faoin Tionscadal & Teicneolaíocht",
+    limitsDesc: "- Teorainn uaslódála: 50MB (rabhadh ag 50MB+)\n- Cumasc uasta: 100MB san iomlán\n- Uasmhéid comhaid: 10 comhad PDF",
+    privacyDesc: "Rith 100% ar thaobh an chliaint. Ní fhágann do dhoiciméid do ghléas riamh. Gan aon idirghníomhú le freastalaí.",
+    sessionDesc: "Sábhálfar stair na n-oibríochtaí i gcuimhne RAM sealadach. Glanfar é ar athnuachan an leathanaigh.",
+    techDesc: "Próiseáil ar thaobh an chliaint amháin ag baint úsáide as React, Vite, Tailwind CSS, agus PDF-lib.",
+    q1: "Q1: Conas nach n-úsáideann sé freastalaí?",
+    a1: "Ritheann an feidhmchlár go hiomlán i mbosca gainimh do bhrabhsálaí áitiúil. Léann sé comhaid go háitiúil trí HTML5 File APIs agus próiseálann sé iad ag baint úsáide as JavaScript. Níl aon ghlaonna HTTP backend ann.",
+    q2: "Q2: Conas a oibríonn an sreabhadh oibre ar ghléas an chliaint?",
+    a2_1: "Uaslódáil: Déantar an PDF a pharsáil go háitiúil ag baint úsáide as PDF.js.",
+    a2_2: "Eagarthóireacht: Déantar rianú ar eagarthóireacht mar logaí JSON éadroma chun cuimhne a bharrfheabhsú.",
+    a2_3: "Athchruthú: Nuair a dhéantar réamhamharc nó sábháil, athchomitiú `pdf-lib` an PDF go céim ar chéim.",
+    a2_4: "Íoslódáil: Gintear URL Blob áitiúil chun an comhad a íoslódáil go díreach ó RAM.",
+    q3: "Q3: Cad é próiseáil ar thaobh an chliaint?",
+    a3: "Ciallaíonn sé go dtarlaíonn gach tasc ríomhaireachta agus ionramháil comhad go díreach ar ghléas áitiúil an úsáideora.",
+    q4: "Q4: Cad é an cruach teicneolaíochta?",
+    a4: "Tógtha le React, Vite, agus Tailwind CSS. Úsáideann sé PDF.js le haghaidh rindreála, PDF-Lib le haghaidh modhnú binary, agus JSZip le haghaidh ZIP.",
+    q5: "Q5: Cad chuige PDF-Lib, agus an bhfuil mo chuid sonraí sábháilte?",
+    a5: "Is leabharlann JavaScript í PDF-Lib a oibríonn i gcuimhne an bhrabhsálaí. Ní bhailíonn sí aon sonraí. Ritheann an clár go hiomlán as líne tar éis é a lódáil.",
+    appTitle: "Bosca Uirlisí PDF As Líne",
+    appDesc: "Príobháideachas ráthaithe. Déantar do chomhaid a phróiseáil go hiomlán i dtaisce an bhrabhsálaí.",
+    tool_merge: "🔀 Cumaisc PDFanna",
+    tool_reorder: "📋 Athordaigh",
+    tool_extract_pages: "✂️ Sliocht Leathanaigh",
+    tool_link: "🔗 Limistéar Nasc",
+    tool_stamp: "🖼️ Stampa PNG",
+    tool_text: "🔤 Cuir Téacs leis",
+    tool_image: "🖼️ Cuir Íomhá leis",
+    tool_extract_images: "🖼️ Sliocht Íomhánna",
+    combineFilesDesc: "Comhcheangail 2-10 comhad",
+    rearrangePagesDesc: "Athordaigh leathanaigh",
+    separateRangeDesc: "Deighil raon leathanaigh",
+    drawHyperlinkDesc: "Tarraing nasc inchliceáilte",
+    placeStampDesc: "Cuir stampa trédhearcach",
+    addCustomTextDesc: "Scríobh téacs saincheaptha",
+    addImageAssetsDesc: "Cuir íomhánna JPG/PNG leis",
+    extractAssetsDesc: "Íoslódáil íomhánna as PDF",
+    dropMerge: "Scaoil 2–10 comhad PDF anseo le cumasc",
+    dropSingle: "Scaoil do chomhad PDF anseo",
+    orBrowse: "nó cliceáil chun brabhsáil go háitiúil",
+    filesToMerge: "Comhaid le Cumasc",
+    clearAll: "Glan Gach Rud",
+    mergeAndEdit: "⚡ Cumaisc & Cuir in Eagar",
+    cancel: "Cealaigh",
+    resetZoom: "🔄 Athshocraigh Zúmáil",
+    zoomLabel: "🔍 Zúmáil",
+    applyAndSave: "Cuir i bhfeidhm & Sábháil Leagan",
+    dragRearrange: "Tarraing mionshamhlacha le hathordú",
+    extractedImagesTitle: "Sliocht Íomhánna",
+    extractedImagesCount: "Íomhánna Sliochtaithe",
+    downloadZip: "📦 Íoslódáil ZIP go léir",
+    back: "Ar ais",
+    clickOverlayInstruction: "💡 Cliceáil áit ar bith ar leathanach thíos chun do mhír a chur!",
+    overlayEditor: "Eagarthóir Sraitheanna",
+    overlayDesc: "Roghnaigh cineál, cliceáil ar leathanach le cur síos, ansin tarraing/athraigh méid.",
+    customText: "Téacs Téama",
+    size: "Méid",
+    color: "Dath",
+    opacity: "Teimhneacht",
+    uploadStamp: "Uaslódáil Stampa",
+    uploadImage: "Uaslódáil Íomhá",
+    noOverlayYet: "Níor cuireadh aon nasc leis fós. Cliceáil ar \"+ Cuir Ríomh\" nó ar an PDF.",
+    noToolSelected: "Roghnaigh uirlis thuas chun tosú ar an PDF a chur in eagar.",
+    versionHistory: "Stair Leaganacha",
+    availableActions: "Gníomhartha Reatha",
+    warningDiscardTitle: "Discard Forward Versions?",
+    warningDiscardDesc: "Déanfaidh eagarthóireacht ar leagan níos sine an stair a scoilt. Caillfear leaganacha amach anseo.",
+    continueEdit: "Lean ar aghaidh & Cuir in Eagar",
+    closeFileTitle: "Dún Comhad?",
+    closeFileDesc: "An bhfuil tú cinnte go dteastaíonn uait an comhad seo a dhúnadh? Caillfear athruithe.",
+    closeFileBtn: "Dún Comhad",
+    pageWord: "Leathanach"
+  },
+  hi: {
+    specsTitle: "ⓘ पीडीएफ उपकरण विनिर्देश और प्रश्न-उत्तर",
+    faqTitle: "💡 अक्सर पूछे जाने वाले प्रश्न (Q&A)",
+    closeSheet: "जानकारी पत्रक बंद करें",
+    limits: "फ़ाइल आकार सीमाएँ",
+    privacy: "गोपनीयता सुरक्षा",
+    session: "अस्थायी सत्र इतिहास",
+    tech: "परियोजना विवरण और तकनीक",
+    limitsDesc: "- अधिकतम फ़ाइल अपलोड सीमा: 50MB (50MB+ पर चेतावनी)\n- अधिकतम विलय आकार: कुल मिलाकर 100MB\n- अधिकतम विलय फ़ाइल संख्या: 10 पीडीएफ फ़ाइलें",
+    privacyDesc: "100% क्लाइंट-साइड निष्पादन। आपके दस्तावेज़ आपके स्थानीय डिवाइस स्टोरेज से कभी बाहर नहीं जाते हैं। कोई सर्वर संचार या डेटाबेस प्रविष्टि नहीं होती है।",
+    sessionDesc: "संचालन लॉग और संस्करण ट्री मेमोरी में सहेजे जाते हैं और ब्राउज़र रिफ्रेश करने पर नष्ट हो जाते हैं। बाहर निकलने से पहले अपने संपादन डाउनलोड करें।",
+    techDesc: "रिएक्ट, विट, टेलविंड सीएसएस और पीडीएफ-लिब का उपयोग करके केवल क्लाइंट-साइड प्रोसेसिंग।",
+    q1: "Q1: बिना सर्वर के यह कैसे काम करता है?",
+    a1: "एप्लिकेशन पूरी तरह से आपके ब्राउज़र के स्थानीय सैंडबॉक्स में चलता है। यह HTML5 फ़ाइल API (`ArrayBuffer`) के माध्यम से फ़ाइलों को स्थानीय रूप से पढ़ता है और क्लाइंट-साइड जावास्क्रिप्ट का उपयोग करके संसाधित और सुरक्षित करता है। कोई HTTP बैकएंड अनुरोध नहीं है।",
+    q2: "Q2: क्लाइंट डिवाइस पर कार्यप्रवाह कैसा है?",
+    a2_1: "अपलोड: पीडीएफ को पीडीएफ.जेएस का उपयोग करके स्थानीय स्तर पर पार्स किया जाता है।",
+    a2_2: "संपादन: भारी पीडीएफ फाइलों को रखने के बजाय मेमोरी उपयोग को अनुकूलित करने के लिए संपादन को हल्के जेएसओएन ऑपरेशन लॉग के रूप में ट्रैक किया जाता है।",
+    a2_3: "पुनर्निर्माण: पूर्वावलोकन या डाउनलोड के समय, `pdf-lib` मूल फाइल बफर पर संचालन कतार लागू करके पीडीएफ को फिर से संकलित करता है।",
+    a2_4: "डाउनलोड: स्थानीय ब्लॉब यूआरएल उत्पन्न होता है जो सीधे रैम से डाउनलोड करने की अनुमति देता है।",
+    q3: "Q3: क्लाइंट-साइड प्रोसेसिंग क्या है?",
+    a3: "क्लाइंट-साइड प्रोसेसिंग का अर्थ है कि सभी गणना कार्य, रेंडरिंग और फ़ाइल संचालन सीधे उपयोगकर्ता के स्थानीय मशीन पर किए जाते हैं, न कि किसी दूरस्थ क्लाउड सर्वर पर।",
+    q4: "Q4: इसमें कौन सी तकनीकें प्रयुक्त हैं?",
+    a4: "यह रिएक्ट, विट और टेलविंड सीएसएस के साथ बनाया गया है। रेंडरिंग के लिए PDF.js, बाइनरी संपादन के लिए PDF-Lib और ब्राउज़र में ज़िप बनाने के लिए JSZip का उपयोग होता है।",
+    q5: "Q5: PDF-Lib क्या है और क्या यह मेरे डेटा का उपयोग करता है?",
+    a5: "PDF-Lib एक शुद्ध जावास्क्रिप्ट लाइब्रेरी है जो ब्राउज़र मेमोरी में पीडीएफ़ संरचना को पढ़ती और बदलती है। यह आपका डेटा एकत्र या प्रसारित नहीं करती है। लोड होने के बाद यह पूरी तरह ऑफ़लाइन काम कर सकती है।",
+    appTitle: "ऑफ़लाइन पीडीएफ टूलबॉक्स",
+    appDesc: "गोपनीयता की गारंटी। आपकी फ़ाइलें आपके ब्राउज़र कैश में संसाधित की जाती हैं और कभी किसी सर्वर पर अपलोड नहीं की जाती हैं।",
+    tool_merge: "🔀 पीडीएफ विलय",
+    tool_reorder: "📋 क्रम बदलें",
+    tool_extract_pages: "✂️ पृष्ठ निकालें",
+    tool_link: "🔗 लिंक क्षेत्र",
+    tool_stamp: "🖼️ पीएनजी स्टैम्प",
+    tool_text: "🔤 टेक्स्ट जोड़ें",
+    tool_image: "🖼️ छवि जोड़ें",
+    tool_extract_images: "🖼️ छवियां निकालें",
+    combineFilesDesc: "2-10 फ़ाइलें मर्ज करें",
+    rearrangePagesDesc: "पृष्ठों का क्रम बदलें",
+    separateRangeDesc: "विशिष्ट पृष्ठ सीमा अलग करें",
+    drawHyperlinkDesc: "क्लिक करने योग्य लिंक बनाएं",
+    placeStampDesc: "पारदर्शी स्टैम्प लगाएं",
+    addCustomTextDesc: "कस्टम टेक्स्ट टाइप करें",
+    addImageAssetsDesc: "जेपीजी/पीएनजी चित्र लगाएं",
+    extractAssetsDesc: "पीडीएफ से छवियां डाउनलोड करें",
+    dropMerge: "मर्ज करने के लिए 2-10 पीडीएफ फाइलें यहां छोड़ें",
+    dropSingle: "अपनी पीडीएफ फाइल यहां छोड़ें",
+    orBrowse: "या स्थानीय फ़ाइलों के लिए ब्राउज़ करें",
+    filesToMerge: "विलय के लिए फाइलें",
+    clearAll: "सभी साफ़ करें",
+    mergeAndEdit: "⚡ मर्ज करें और संपादित करें",
+    cancel: "रद्द करें",
+    resetZoom: "🔄 ज़ूम रीसेट",
+    zoomLabel: "🔍 ज़ूम",
+    applyAndSave: "लागू करें और संस्करण सहेजें",
+    dragRearrange: "क्रम बदलने के लिए थंबनेल खींचें",
+    extractedImagesTitle: "छवि निष्कर्षक",
+    extractedImagesCount: "निकाली गई छवियां",
+    downloadZip: "📦 सभी ज़िप डाउनलोड करें",
+    back: "पीछे",
+    clickOverlayInstruction: "💡 नीचे किसी पृष्ठ पर कहीं भी क्लिक या स्पर्श करें!",
+    overlayEditor: "ओवरले संपादक",
+    overlayDesc: "एक प्रकार चुनें, पूर्वावलोकन पृष्ठ पर क्लिक करें, फिर खींचें या आकार बदलें।",
+    customText: "कस्टम टेक्स्ट",
+    size: "आकार",
+    color: "रंग",
+    opacity: "अपारदर्शिता",
+    uploadStamp: "स्टैम्प अपलोड करें",
+    uploadImage: "छवि अपलोड करें",
+    noOverlayYet: "कोई लिंक नहीं जोड़ा गया। '+ पंक्ति जोड़ें' पर क्लिक करें या पीडीएफ पर क्लिक करें।",
+    noToolSelected: "संपादन शुरू करने के लिए ऊपर से एक टूल चुनें।",
+    versionHistory: "संस्करण इतिहास",
+    availableActions: "उपलब्ध क्रियाएं",
+    warningDiscardTitle: "आगे के संस्करण छोड़ें?",
+    warningDiscardDesc: "पुराने संस्करण को संपादित करने से इतिहास विभाजित हो जाएगा। इस बिंदु के बाद के संस्करण हटा दिए जाएंगे।",
+    continueEdit: "जारी रखें और संपादित करें",
+    closeFileTitle: "फ़ाइल बंद करें?",
+    closeFileDesc: "क्या आप वाकई इस फ़ाइल को बंद करना चाहते हैं? सभी सहेजे न गए बदलाव नष्ट हो जाएंगे।",
+    closeFileBtn: "फ़ाइल बंद करें",
+    pageWord: "पृष्ठ"
+  },
+  ms: {
+    specsTitle: "ⓘ Spesifikasi Alat PDF & Soal Jawab",
+    faqTitle: "💡 Soalan Lazim (Q&A)",
+    closeSheet: "Tutup Risalah Maklumat",
+    limits: "Had Saiz Fail",
+    privacy: "Perlindungan Privasi",
+    session: "Sejarah Sesi Sementara",
+    tech: "Maklumat Projek & Teknologi",
+    limitsDesc: "- Had muat naik fail maks: 50MB (amaran dipaparkan jika lebih 50MB)\n- Saiz gabungan maks: Jumlah 100MB fail keseluruhan\n- Bilangan gabungan maks: 10 fail PDF",
+    privacyDesc: "Operasi 100% pada sisi klien. Dokumen anda tidak akan keluar dari peranti tempatan anda. Tiada interaksi pelayan atau penyimpanan pangkalan data.",
+    sessionDesc: "Log operasi dan rekod versi disimpan dalam memori RAM sahaja dan akan dipadamkan apabila halaman penyemak imbas dimuat semula. Muat turun suntingan sebelum keluar.",
+    techDesc: "Pemprosesan hanya pada sisi klien menggunakan React, Vite, Tailwind CSS dan PDF-lib.",
+    q1: "Q1: Bagaimana ia berfungsi tanpa pelayan?",
+    a1: "Aplikasi berjalan sepenuhnya dalam sandbox tempatan penyemak imbas anda. Fail dibaca secara tempatan melalui HTML5 File API (`ArrayBuffer`) dan diproses oleh JavaScript pada sisi klien.",
+    q2: "Q2: Bagaimanakah aliran kerja pada peranti klien?",
+    a2_1: "Muat Naik: PDF dianalisis secara tempatan menggunakan PDF.js.",
+    a2_2: "Sunting: Suntingan dikesan sebagai log operasi JSON yang ringan untuk menjimatkan penggunaan memori RAM.",
+    a2_3: "Pembinaan Semula: Semasa pratinjau atau muat turun, `pdf-lib` membina semula PDF dengan memproses semula senarai operasi ke atas fail asal.",
+    a2_4: "Muat Turun: URL Blob tempatan dijana untuk membolehkan fail dimuat turun terus dari memori RAM.",
+    q3: "Q3: Apakah pemprosesan sisi klien?",
+    a3: "Pemprosesan sisi klien bermaksud semua tugas pengiraan, rendering dan operasi fail berlaku terus dalam enjin pelayar pada komputer tempatan pengguna, tanpa menghantar data ke pelayan awan.",
+    q4: "Q4: Apakah stack teknologi yang digunakan?",
+    a4: "Dibina menggunakan React, Vite, dan Tailwind CSS. Menggunakan PDF.js untuk paparan, PDF-Lib untuk perubahan fail binari, dan JSZip untuk pembungkusan fail ke format ZIP.",
+    q5: "Q5: Apakah peranan PDF-Lib dan adakah data saya selamat?",
+    a5: "PDF-Lib ialah pustaka JavaScript tulen untuk membaca, mengubah suai dan menyusun struktur binari PDF dalam memori pelayar. Ia tidak mengumpul atau menghantar data anda. Aplikasi boleh berfungsi tanpa talian internet sepenuhnya.",
+    appTitle: "Kotak Alat PDF Luar Talian",
+    appDesc: "Privasi terjamin. Fail anda diproses sepenuhnya dalam cache pelayar dan tidak akan dimuat naik ke pelayan.",
+    tool_merge: "🔀 Gabung PDF",
+    tool_reorder: "📋 Susun Semula Halaman",
+    tool_extract_pages: "✂️ Ekstrak Halaman",
+    tool_link: "🔗 Kawasan Pautan",
+    tool_stamp: "🖼️ Cap PNG",
+    tool_text: "🔤 Tambah Teks",
+    tool_image: "🖼️ Tambah Gambar",
+    tool_extract_images: "🖼️ Ekstrak Gambar",
+    combineFilesDesc: "Gabungkan 2 hingga 10 fail",
+    rearrangePagesDesc: "Susun semula susunan halaman",
+    separateRangeDesc: "Asingkan julat halaman tertentu",
+    drawHyperlinkDesc: "Lukis kotak pautan boleh klik",
+    placeStampDesc: "Letakkan cap lut sinar",
+    addCustomTextDesc: "Masukkan teks tersuai",
+    addImageAssetsDesc: "Letakkan imej JPG/PNG",
+    extractAssetsDesc: "Simpan imej daripada PDF",
+    dropMerge: "Lepaskan 2–10 fail PDF di sini untuk digabungkan",
+    dropSingle: "Lepaskan fail PDF anda di sini",
+    orBrowse: "atau klik untuk mencari fail tempatan",
+    filesToMerge: "Fail untuk Digabungkan",
+    clearAll: "Padam Semua",
+    mergeAndEdit: "⚡ Gabung & Sunting",
+    cancel: "Batal",
+    resetZoom: "🔄 Set Semula Zum",
+    zoomLabel: "🔍 Zum",
+    applyAndSave: "Guna & Simpan Versi",
+    dragRearrange: "Heret lakaran kecil untuk susun semula",
+    extractedImagesTitle: "Alat Ekstrak Imej",
+    extractedImagesCount: "Imej yang Diekstrak",
+    downloadZip: "📦 Muat Turun Semua ZIP",
+    back: "Kembali",
+    clickOverlayInstruction: "💡 Klik atau ketik di mana-mana sahaja pada halaman di bawah untuk meletakkan item anda!",
+    overlayEditor: "Editor Tindihan",
+    overlayDesc: "Pilih jenis, klik halaman pratinjau untuk meletakkan, kemudian heret/ubah saiz untuk konfigurasi.",
+    customText: "Teks Tersuai",
+    size: "Saiz",
+    color: "Warna",
+    opacity: "Kelegapan",
+    uploadStamp: "Muat Naik Cap",
+    uploadImage: "Muat Naik Gambar",
+    noOverlayYet: "Tiada tindihan pautan ditambah lagi. Klik \"+ Tambah Baris\" atau klik pada PDF untuk menciptanya.",
+    noToolSelected: "Pilih kad tindakan di atas untuk mula menyunting dokumen PDF ini.",
+    versionHistory: "Sejarah Versi",
+    availableActions: "Tindakan Tersedia",
+    warningDiscardTitle: "Buang Versi Seterusnya?",
+    warningDiscardDesc: "Menyunting versi yang lebih lama akan memisahkan sejarah pokok versi. Versi masa depan selepas ini akan dibuang.",
+    continueEdit: "Teruskan & Sunting",
+    closeFileTitle: "Tutup Fail?",
+    closeFileDesc: "Adakah anda pasti mahu menutup fail ini? Semua suntingan yang belum disimpan akan hilang.",
+    closeFileBtn: "Tutup Fail",
+    pageWord: "Halaman"
+  },
+  vi: {
+    specsTitle: "ⓘ Thông số kỹ thuật & Hỏi đáp về Công cụ PDF",
+    faqTitle: "💡 Câu hỏi thường gặp (Q&A)",
+    closeSheet: "Đóng bảng thông tin",
+    limits: "Giới hạn kích thước tệp",
+    privacy: "Bảo mật quyền riêng tư",
+    session: "Lịch sử phiên tạm thời",
+    tech: "Thông tin dự án & Công nghệ",
+    limitsDesc: "- Giới hạn tải lên tối đa: 50MB (cảnh báo trên 50MB)\n- Kích thước gộp tối đa: tổng cộng 100MB giữa các tệp\n- Số lượng tệp gộp tối đa: 10 tệp PDF",
+    privacyDesc: "Thực thi 100% phía máy khách (Client-Side). Tài liệu của bạn không bao giờ rời khỏi thiết bị lưu trữ cục bộ. Không có tương tác máy chủ hay lưu trữ cơ sở dữ liệu.",
+    sessionDesc: "Nhật ký hoạt động và cây phiên bản được lưu trong bộ nhớ tạm và sẽ bị xóa khi làm mới trang trình duyệt. Hãy tải xuống bản chỉnh sửa trước khi thoát.",
+    techDesc: "Xử lý hoàn toàn ở phía máy khách bằng React, Vite, Tailwind CSS và PDF-lib.",
+    q1: "Q1: Làm thế nào ứng dụng hoạt động không cần máy chủ?",
+    a1: "Ứng dụng chạy hoàn toàn trong hộp cát trình duyệt cục bộ của bạn. Nó đọc tệp cục bộ thông qua HTML5 File API (`ArrayBuffer`) và xử lý bằng JavaScript ở phía máy khách. Không có yêu cầu HTTP nào gửi đến máy chủ phụ trợ.",
+    q2: "Q2: Quy trình làm việc trên thiết bị khách diễn ra như thế nào?",
+    a2_1: "Tải lên: PDF được phân tích cục bộ bằng PDF.js.",
+    a2_2: "Chỉnh sửa: Các chỉnh sửa được theo dõi dưới dạng nhật ký hoạt động JSON nhẹ để tối ưu hóa bộ nhớ.",
+    a2_3: "Tái cấu trúc: Khi xem trước hoặc tải xuống, `pdf-lib` sẽ biên dịch lại PDF bằng cách áp dụng từng hoạt động vào bộ đệm gốc.",
+    a2_4: "Tải xuống: Một URL Blob cục bộ được tạo để trình duyệt tải trực tiếp từ bộ nhớ RAM.",
+    q3: "Q3: Xử lý phía máy khách là gì?",
+    a3: "Xử lý phía máy khách nghĩa là mọi tác vụ tính toán, hiển thị và thao tác tệp đều diễn ra trực tiếp trong công cụ thực thi trình duyệt trên máy của người dùng, không truyền dữ liệu đến máy chủ đám mây.",
+    q4: "Q4: Bộ công nghệ được sử dụng là gì?",
+    a4: "Được xây dựng bằng React, Vite và Tailwind CSS. Sử dụng PDF.js để kết xuất trang, PDF-Lib để thay đổi cấu trúc nhị phân PDF và JSZip để đóng gói tệp ZIP.",
+    q5: "Q5: Vai trò của PDF-Lib là gì và dữ liệu của tôi có an toàn không?",
+    a5: "PDF-Lib là một thư viện JavaScript thuần túy đọc, sửa đổi và biên dịch cấu trúc nhị phân PDF trong bộ nhớ trình duyệt. Nó không thu thập hay truyền tải dữ liệu của bạn. Hoạt động hoàn toàn ngoại tuyến sau khi tải.",
+    appTitle: "Hộp công cụ PDF Ngoại tuyến",
+    appDesc: "Bảo mật tuyệt đối. Tệp của bạn được xử lý hoàn toàn trong bộ nhớ cache trình duyệt và không bao giờ tải lên bất kỳ máy chủ nào.",
+    tool_merge: "🔀 Gộp PDF",
+    tool_reorder: "📋 Sắp xếp lại trang",
+    tool_extract_pages: "✂️ Trích xuất trang",
+    tool_link: "🔗 Vùng liên kết",
+    tool_stamp: "🖼️ Đóng dấu PNG",
+    tool_text: "🔤 Thêm văn bản",
+    tool_image: "🖼️ Thêm hình ảnh",
+    tool_extract_images: "🖼️ Trích xuất ảnh",
+    combineFilesDesc: "Gộp từ 2 đến 10 tệp",
+    rearrangePagesDesc: "Sắp xếp lại thứ tự trang",
+    separateRangeDesc: "Tách một phạm vi trang cụ thể",
+    drawHyperlinkDesc: "Vẽ hộp liên kết có thể nhấp",
+    placeStampDesc: "Chèn hình ảnh dấu trong suốt",
+    addCustomTextDesc: "Nhập văn bản tùy chỉnh",
+    addImageAssetsDesc: "Chèn hình ảnh JPG/PNG",
+    extractAssetsDesc: "Lưu hình ảnh từ PDF",
+    dropMerge: "Thả 2-10 tệp PDF vào đây để gộp",
+    dropSingle: "Thả tệp PDF của bạn vào đây",
+    orBrowse: "hoặc nhấp để chọn tệp cục bộ",
+    filesToMerge: "Tệp cần gộp",
+    clearAll: "Xóa tất cả",
+    mergeAndEdit: "⚡ Gộp & Chỉnh sửa",
+    cancel: "Hủy",
+    resetZoom: "🔄 Đặt lại thu phóng",
+    zoomLabel: "🔍 Thu phóng",
+    applyAndSave: "Áp dụng & Lưu phiên bản",
+    dragRearrange: "Kéo hình thu nhỏ để sắp xếp",
+    extractedImagesTitle: "Bộ trích xuất hình ảnh",
+    extractedImagesCount: "Hình ảnh đã trích xuất",
+    downloadZip: "📦 Tải xuống tất cả ZIP",
+    back: "Quay lại",
+    clickOverlayInstruction: "💡 Nhấp hoặc chạm vào bất kỳ đâu trên trang bên dưới để đặt mục của bạn!",
+    overlayEditor: "Trình chỉnh sửa lớp phủ",
+    overlayDesc: "Chọn một loại, nhấp vào trang xem trước để đặt, sau đó kéo/thay đổi kích thước.",
+    customText: "Văn bản tùy chỉnh",
+    size: "Kích thước",
+    color: "Màu sắc",
+    opacity: "Độ mờ",
+    uploadStamp: "Tải lên con dấu",
+    uploadImage: "Tải lên hình ảnh",
+    noOverlayYet: "Chưa có liên kết lớp phủ nào. Nhấp '+ Thêm hàng' hoặc nhấp vào PDF để tạo.",
+    noToolSelected: "Chọn một thẻ hành động ở trên để bắt đầu chỉnh sửa tài liệu PDF này.",
+    versionHistory: "Lịch sử phiên bản",
+    availableActions: "Hành động khả dụng",
+    warningDiscardTitle: "Hủy các phiên bản sau?",
+    warningDiscardDesc: "Chỉnh sửa phiên bản cũ hơn sẽ phân nhánh lịch sử. Các phiên bản tiếp theo sau thời điểm này sẽ bị hủy bỏ.",
+    continueEdit: "Tiếp tục & Chỉnh sửa",
+    closeFileTitle: "Đóng tệp?",
+    closeFileDesc: "Bạn có chắc chắn muốn đóng tệp này không? Mọi thay đổi chưa lưu sẽ bị mất.",
+    closeFileBtn: "Đóng tệp",
+    pageWord: "Trang"
+  }
+};
+
 // --- SUB-COMPONENTS FOR DRAG & DROP REORDERING ---
 
 // Sortable item wrapper for PDF Page thumbnails
-function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc }) {
+function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc, pageWord }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const canvasRef = useRef(null);
 
@@ -54,7 +1007,7 @@ function SortablePageThumbnail({ id, index, totalPages, renderTrigger, pdfDoc })
         <canvas ref={canvasRef} className="w-full h-auto object-contain block" />
       </div>
       <span className="text-base font-semibold text-gray-300 mt-1.5 group-hover:text-purple-400 transition-colors">
-        Page {index + 1}
+        {pageWord || "Page"} {index + 1}
       </span>
     </div>
   );
@@ -101,6 +1054,21 @@ function SortableFileItem({ id, file, onRemove }) {
 // --- MAIN APPLICATION COMPONENT ---
 
 export default function App() {
+  const languages = [
+    { code: 'en', name: 'English', flag: '🇬🇧', flagUrl: 'https://flagcdn.com/w40/gb.png' },
+    { code: 'id', name: 'Bahasa Indo', flag: '🇮🇩', flagUrl: 'https://flagcdn.com/w40/id.png' },
+    { code: 'ar', name: 'العربية', flag: '🇸🇦', flagUrl: 'https://flagcdn.com/w40/sa.png' },
+    { code: 'es', name: 'Español', flag: '🇪🇸', flagUrl: 'https://flagcdn.com/w40/es.png' },
+    { code: 'jv', name: 'Basa Jawa', flag: '🌾', flagUrl: 'https://flagcdn.com/w40/id.png', isSubLang: true },
+    { code: 'ja', name: '日本語', flag: '🇯🇵', flagUrl: 'https://flagcdn.com/w40/jp.png' },
+    { code: 'zh', name: '中文', flag: '🇨🇳', flagUrl: 'https://flagcdn.com/w40/cn.png' },
+    { code: 'ru', name: 'Русский', flag: '🇷🇺', flagUrl: 'https://flagcdn.com/w40/ru.png' },
+    { code: 'ga', name: 'Gaeilge', flag: '🇮🇪', flagUrl: 'https://flagcdn.com/w40/ie.png' },
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳', flagUrl: 'https://flagcdn.com/w40/in.png' },
+    { code: 'ms', name: 'Bahasa Melayu', flag: '🇲🇾', flagUrl: 'https://flagcdn.com/w40/my.png' },
+    { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳', flagUrl: 'https://flagcdn.com/w40/vn.png' },
+  ];
+
   // File states
   const [originalBytes, setOriginalBytes] = useState(null);
   const [fileName, setFileName] = useState('');
@@ -142,6 +1110,8 @@ export default function App() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [expandedAccordions, setExpandedAccordions] = useState([]);
   const [faqOpen, setFaqOpen] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
+  const [langOpen, setLangOpen] = useState(false);
   const [showDownloadAllModal, setShowDownloadAllModal] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -829,13 +1799,13 @@ export default function App() {
     <>
       {/* Dashboard Action List */}
       <div className="p-4 border-b border-gray-900 bg-gray-900/10">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Available Actions</span>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">{dictionary[currentLanguage]?.availableActions || "Available Actions"}</span>
         <div className="flex flex-wrap gap-1.5">
           {[
-            { id: 'reorder', label: '📋 Reorder' },
-            { id: 'extract_pages', label: '✂️ Extract Pages' },
-            { id: 'overlays', label: '✍️ Add Overlays' },
-            { id: 'extract_images', label: '🖼️ Pull Images' },
+            { id: 'reorder', label: dictionary[currentLanguage]?.tool_reorder || '📋 Reorder' },
+            { id: 'extract_pages', label: dictionary[currentLanguage]?.tool_extract_pages || '✂️ Extract Pages' },
+            { id: 'overlays', label: `✍️ ${dictionary[currentLanguage]?.overlayEditor || 'Overlay Editor'}` },
+            { id: 'extract_images', label: dictionary[currentLanguage]?.tool_extract_images || '🖼️ Pull Images' },
           ].map(tool => (
             <button
               type="button"
@@ -864,9 +1834,9 @@ export default function App() {
         {activeTool === 'reorder' && (
           <div className="text-left flex flex-col h-full justify-between gap-4">
             <div>
-              <h4 className="text-sm font-bold text-gray-200 mb-1">Reorder Pages</h4>
+              <h4 className="text-sm font-bold text-gray-200 mb-1">{dictionary[currentLanguage]?.tool_reorder || "Reorder Pages"}</h4>
               <p className="text-xs text-gray-500 leading-normal">
-                Drag thumbnails in the left workspace to rearrange the PDF page order. Click apply to save your new layout.
+                {dictionary[currentLanguage]?.dragRearrange || "Drag thumbnails in the left workspace to rearrange the PDF page order."}
               </p>
             </div>
             <button
@@ -874,7 +1844,7 @@ export default function App() {
               onClick={handleSaveReorder}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
             >
-              Apply & Save Version
+              {dictionary[currentLanguage]?.applyAndSave || "Apply & Save Version"}
             </button>
           </div>
         )}
@@ -883,14 +1853,14 @@ export default function App() {
         {activeTool === 'extract_pages' && (
           <div className="text-left flex flex-col gap-4">
             <div>
-              <h4 className="text-sm font-bold text-gray-200 mb-1">Extract Pages</h4>
+              <h4 className="text-sm font-bold text-gray-200 mb-1">{dictionary[currentLanguage]?.tool_extract_pages || "Extract Pages"}</h4>
               <p className="text-xs text-gray-500 leading-normal">
-                Generate a new PDF document consisting of only the pages defined in the range criteria.
+                {dictionary[currentLanguage]?.separateRangeDesc || "Generate a new PDF document consisting of only the pages defined in the range criteria."}
               </p>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-gray-400 uppercase">Page Range (Total: {totalPages})</label>
+              <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.pageRange || "Page Range"} (Total: {totalPages})</label>
               <input
                 type="text"
                 placeholder="e.g. 1, 3-5, 7"
@@ -899,7 +1869,7 @@ export default function App() {
                 className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-200 outline-none focus:border-purple-500/50 transition-colors font-mono"
               />
               <span className="text-xs text-gray-600 leading-normal">
-                Format: Use comma separators and hyphens for range brackets. e.g. "1, 2-4, 5".
+                {dictionary[currentLanguage]?.formatRange || "Format: Use comma separators and hyphens for range brackets. e.g. \"1, 2-4, 5\"."}
               </span>
             </div>
 
@@ -908,7 +1878,7 @@ export default function App() {
               onClick={handleSaveExtractPages}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer mt-2"
             >
-              Apply & Save Version
+              {dictionary[currentLanguage]?.applyAndSave || "Apply & Save Version"}
             </button>
           </div>
         )}
@@ -917,9 +1887,9 @@ export default function App() {
         {activeTool === 'extract_images' && (
           <div className="text-left flex flex-col gap-4">
             <div>
-              <h4 className="text-sm font-bold text-gray-200 mb-1">Extract Embedded Images</h4>
+              <h4 className="text-sm font-bold text-gray-200 mb-1">{dictionary[currentLanguage]?.extractedImagesTitle || "Extract Embedded Images"}</h4>
               <p className="text-xs text-gray-500 leading-normal">
-                Extract and download all raw graphic assets and images embedded within this PDF document.
+                {dictionary[currentLanguage]?.extractAssetsDesc || "Extract and download all raw graphic assets and images embedded within this PDF document."}
               </p>
             </div>
 
@@ -929,7 +1899,7 @@ export default function App() {
                 onClick={handleRunExtractImages}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Extract PDF Images
+                {dictionary[currentLanguage]?.runExtract || "Extract PDF Images"}
               </button>
             ) : (
               <div className="flex flex-col gap-2">
@@ -938,14 +1908,14 @@ export default function App() {
                   onClick={downloadAllImagesZip}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
                 >
-                  📦 Download ZIP ({extractedImages.length})
+                  {dictionary[currentLanguage]?.downloadZip || "📦 Download ZIP"} ({extractedImages.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setExtractedImages([])}
                   className="w-full bg-gray-900 hover:bg-gray-850 text-gray-400 font-semibold text-xs py-2.5 rounded-lg border border-gray-800 transition-colors cursor-pointer"
                 >
-                  Clear Extracted
+                  {dictionary[currentLanguage]?.clearAll || "Clear Extracted"}
                 </button>
               </div>
             )}
@@ -956,19 +1926,19 @@ export default function App() {
         {activeTool === 'overlays' && (
           <div className="text-left flex flex-col gap-4">
             <div>
-              <h4 className="text-sm font-bold text-gray-200 mb-1">Overlay Editor</h4>
+              <h4 className="text-sm font-bold text-gray-200 mb-1">{dictionary[currentLanguage]?.overlayEditor || "Overlay Editor"}</h4>
               <p className="text-xs text-gray-500 leading-normal">
-                Select a type, click on the preview page to place it, then drag/resize to configure.
+                {dictionary[currentLanguage]?.overlayDesc || "Select a type, click on the preview page to place it, then drag/resize to configure."}
               </p>
             </div>
 
             {/* Overlay Type Switcher buttons */}
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { id: 'link', label: '🔗 Link' },
-                { id: 'text', label: '🔤 Text' },
-                { id: 'stamp', label: '🖼️ Stamp' },
-                { id: 'image', label: '🖼️ Image' },
+                { id: 'link', label: dictionary[currentLanguage]?.tool_link?.replace("🔗 ", "") || "Link" },
+                { id: 'text', label: dictionary[currentLanguage]?.tool_text?.replace("🔤 ", "") || "Text" },
+                { id: 'stamp', label: dictionary[currentLanguage]?.tool_stamp?.replace("🖼️ ", "") || "Stamp" },
+                { id: 'image', label: dictionary[currentLanguage]?.tool_image?.replace("🖼️ ", "") || "Image" },
               ].map(type => (
                 <button
                   type="button"
@@ -995,20 +1965,20 @@ export default function App() {
               {overlayTool === 'link' && (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Target URL (Active Overlay)</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.tool_link?.replace("🔗 ", "") || "Link"} URL</label>
                     <input
                       type="text"
                       value={urlVal}
                       onChange={(e) => setUrlVal(e.target.value)}
                       className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-xs text-gray-200 outline-none w-full"
-                      placeholder="Select an overlay first..."
+                      placeholder="https://"
                       disabled={selectedOverlayIdx === null || overlays[selectedOverlayIdx]?.type !== 'link'}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5 mt-2">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Link Overlays Table</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.tool_link?.replace("🔗 ", "") || "Link"} Table</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -1026,7 +1996,7 @@ export default function App() {
 
                     {overlays.filter(ov => ov.type === 'link').length === 0 ? (
                       <div className="text-xs text-gray-500 italic p-3 border border-gray-800 rounded bg-gray-900/50">
-                        No link overlays added yet. Click "+ Add Row" or click on the PDF to create one.
+                        {dictionary[currentLanguage]?.noOverlayYet || 'No link overlays added yet. Click "+ Add Row" or click on the PDF to create one.'}
                       </div>
                     ) : (
                       <div className="border border-gray-800 rounded overflow-hidden max-h-48 overflow-y-auto">
@@ -1036,7 +2006,7 @@ export default function App() {
                               <th className="p-2 font-bold border-b border-gray-800 w-10 text-center">No</th>
                               <th className="p-2 font-bold border-b border-gray-800">URL</th>
                               <th className="p-2 font-bold border-b border-gray-800 w-16 text-center">Active</th>
-                              <th className="p-2 font-bold border-b border-gray-800 w-16 text-center">Delete</th>
+                              <th className="p-2 font-bold border-b border-gray-800 w-16 text-center">✕</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1084,7 +2054,7 @@ export default function App() {
               {overlayTool === 'text' && (
                 <div className="flex flex-col gap-2.5">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Custom Text</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.customText || "Custom Text"}</label>
                     <input
                       type="text"
                       value={textVal}
@@ -1095,7 +2065,7 @@ export default function App() {
 
                   <div className="flex gap-2">
                     <div className="flex-1 flex flex-col gap-1">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Size ({fontSizeVal}pt)</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.size || "Size"} ({fontSizeVal}pt)</label>
                       <input
                         type="range"
                         min="8"
@@ -1107,7 +2077,7 @@ export default function App() {
                     </div>
 
                     <div className="flex flex-col gap-1 w-14">
-                      <label className="text-xs font-bold text-gray-400 uppercase">Color</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.color || "Color"}</label>
                       <input
                         type="color"
                         value={colorVal}
@@ -1124,7 +2094,7 @@ export default function App() {
                 <div className="flex flex-col gap-2.5">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-gray-400 uppercase">
-                      Upload {overlayTool === 'stamp' ? 'PNG Stamp' : 'JPG/PNG Image'}
+                      {overlayTool === 'stamp' ? (dictionary[currentLanguage]?.uploadStamp || 'Upload Stamp') : (dictionary[currentLanguage]?.uploadImage || 'Upload Image')}
                     </label>
                     <input
                       type="file"
@@ -1140,7 +2110,7 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Opacity ({Math.round(opacityVal * 100)}%)</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">{dictionary[currentLanguage]?.opacity || "Opacity"} ({Math.round(opacityVal * 100)}%)</label>
                     <input
                       type="range"
                       min="0.1"
@@ -1157,13 +2127,13 @@ export default function App() {
 
             {selectedOverlayIdx !== null && selectedOverlayIdx < overlays.length && (
               <div className="bg-gray-900/60 border border-gray-850 rounded-lg p-2.5 flex items-center justify-between mt-3">
-                <span className="text-xs text-gray-400">Selected Item #{selectedOverlayIdx + 1} ({overlays[selectedOverlayIdx].type})</span>
+                <span className="text-xs text-gray-400">Item #{selectedOverlayIdx + 1} ({overlays[selectedOverlayIdx].type})</span>
                 <button
                   type="button"
                   onClick={() => removeOverlay(selectedOverlayIdx)}
                   className="text-xs text-red-400 hover:underline font-bold"
                 >
-                  Delete
+                  {dictionary[currentLanguage]?.cancel || "Delete"}
                 </button>
               </div>
             )}
@@ -1174,7 +2144,7 @@ export default function App() {
                 onClick={handleSaveOverlays}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Apply & Save Version
+                {dictionary[currentLanguage]?.applyAndSave || "Apply & Save Version"}
               </button>
               <button
                 type="button"
@@ -1186,7 +2156,7 @@ export default function App() {
                 }}
                 className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer text-gray-400 hover:border-gray-700"
               >
-                Cancel
+                {dictionary[currentLanguage]?.cancel || "Cancel"}
               </button>
             </div>
           </div>
@@ -1196,7 +2166,7 @@ export default function App() {
         {!activeTool && (
           <div className="h-full flex items-center justify-center text-center p-4">
             <p className="text-xs text-gray-500 italic">
-              Select an action card above to start editing this PDF document.
+              {dictionary[currentLanguage]?.noToolSelected || "Select an action card above to start editing this PDF document."}
             </p>
           </div>
         )}
@@ -1205,7 +2175,7 @@ export default function App() {
 
       {/* Version History Sidebar Control */}
       <div className="p-5 flex flex-col gap-4 text-left">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block">Version History</span>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block">{dictionary[currentLanguage]?.versionHistory || "Version History"}</span>
         <div id="version-history-list" className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
           {versions.map((ver, idx) => {
             const isActive = idx === activeVersionIndex;
@@ -1236,7 +2206,9 @@ export default function App() {
                     disabled={isActive}
                     className="text-sm font-bold text-purple-400 hover:underline px-1 py-0.5 cursor-pointer disabled:text-gray-500 disabled:no-underline disabled:cursor-default"
                   >
-                    {isActive ? 'Viewing' : 'Preview'}
+                    {isActive 
+                      ? (currentLanguage === 'id' ? 'Sedang Dilihat' : currentLanguage === 'es' ? 'Viendo' : currentLanguage === 'ar' ? 'معاينة' : currentLanguage === 'jv' ? 'Dipirsani' : 'Viewing') 
+                      : (currentLanguage === 'id' ? 'Pratinjau' : currentLanguage === 'es' ? 'Previsualizar' : currentLanguage === 'ar' ? 'عرض' : currentLanguage === 'jv' ? 'Pratinjau' : 'Preview')}
                   </button>
 
                   <button
@@ -1260,7 +2232,7 @@ export default function App() {
                     }}
                     className="text-sm font-bold text-blue-400 hover:underline px-1 py-0.5 cursor-pointer"
                   >
-                    Download
+                    {currentLanguage === 'id' ? 'Unduh' : currentLanguage === 'es' ? 'Descargar' : currentLanguage === 'ar' ? 'تنزيل' : currentLanguage === 'jv' ? 'Unduh' : 'Download'}
                   </button>
                 </div>
               </div>
@@ -1275,12 +2247,12 @@ export default function App() {
     <div className="flex flex-col min-h-screen bg-gray-950 text-gray-100 font-sans antialiased">
 
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-900 bg-gray-950/80 backdrop-blur-md px-4 md:px-6 py-3.5 md:py-4">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-900 bg-gray-950/80 backdrop-blur-md px-3 md:px-5 py-2 md:py-2.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setInfoOpen(true)}
-            className="w-10 h-10 flex items-center justify-center bg-gray-900 border border-gray-800 hover:border-purple-500/50 hover:text-purple-400 text-gray-300 rounded-full cursor-pointer transition-all duration-300 font-semibold"
+            className="w-8 h-8 flex items-center justify-center bg-gray-900 border border-gray-800 hover:border-purple-500/50 hover:text-purple-400 text-gray-300 rounded-full cursor-pointer transition-all duration-300 text-xs font-semibold"
             title="Privacy and File Limits Info"
           >
             ⓘ
@@ -1289,39 +2261,104 @@ export default function App() {
           <button
             type="button"
             onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-            className="w-10 h-10 flex items-center justify-center bg-gray-900 border border-gray-800 hover:border-purple-500/50 hover:text-purple-400 text-gray-300 rounded-full cursor-pointer transition-all duration-300 text-sm"
+            className="w-8 h-8 flex items-center justify-center bg-gray-900 border border-gray-800 hover:border-purple-500/50 hover:text-purple-400 text-gray-300 rounded-full cursor-pointer transition-all duration-300 text-xs"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
+
+          {/* Language Selector Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setLangOpen(prev => !prev)}
+              className="w-8 h-8 flex items-center justify-center bg-gray-900 border border-gray-850 hover:border-purple-500/50 hover:text-purple-400 text-gray-300 rounded-full cursor-pointer transition-all duration-300 text-sm select-none overflow-hidden"
+              title="Change Language"
+            >
+              {(() => {
+                const lang = languages.find(l => l.code === currentLanguage);
+                if (lang?.isSubLang) {
+                  return (
+                    <div className="flex items-center justify-center gap-0.5">
+                      <img src={lang.flagUrl} alt="" className="w-3.5 h-2.5 object-cover rounded-sm border border-gray-200/25 dark:border-gray-800/50 shadow-[0_1px_2px_rgba(0,0,0,0.45)] shrink-0" />
+                      <span className="text-[8px] text-gray-500 font-bold">&gt;</span>
+                      <span className="text-xs shrink-0">{lang.flag}</span>
+                    </div>
+                  );
+                }
+                if (lang?.flagUrl) {
+                  return <img src={lang.flagUrl} alt={lang.name} className="w-5 h-3.5 object-cover rounded-sm border border-gray-200/25 dark:border-gray-800/50 shadow-[0_1px_2px_rgba(0,0,0,0.45)]" />;
+                }
+                return lang?.flag;
+              })()}
+            </button>
+            {langOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+                <div className="absolute left-0 mt-2 w-40 bg-gray-950 border border-gray-850 rounded-xl overflow-y-auto shadow-2xl z-50 animate-fade-in flex flex-col p-1.5 gap-0.5 max-h-64">
+                  {languages.map(lang => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        setCurrentLanguage(lang.code);
+                        setLangOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold cursor-pointer transition-all ${
+                        currentLanguage === lang.code
+                          ? 'bg-purple-600/10 text-purple-400 border border-purple-500/20'
+                          : 'text-gray-400 hover:bg-gray-900/40 border border-transparent'
+                      }`}
+                    >
+                      <span className="text-sm shrink-0 flex items-center justify-start gap-1 w-9">
+                        {lang.isSubLang ? (
+                          <>
+                            <img src={lang.flagUrl} alt="" className="w-4 h-3 object-cover rounded-sm border border-gray-200/25 dark:border-gray-800/50 shadow-[0_1px_2px_rgba(0,0,0,0.45)] shrink-0" />
+                            <span className="text-[10px] text-gray-500 font-bold leading-none">&gt;</span>
+                            <span className="shrink-0">{lang.flag}</span>
+                          </>
+                        ) : lang.flagUrl ? (
+                          <img src={lang.flagUrl} alt={lang.name} className="w-5 h-3.5 object-cover rounded-sm border border-gray-200/25 dark:border-gray-800/50 shadow-[0_1px_2px_rgba(0,0,0,0.45)]" />
+                        ) : (
+                          lang.flag
+                        )}
+                      </span>
+                      <span className="truncate">{lang.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="flex flex-col text-left">
-            <h1 className="text-base font-bold text-gray-100 tracking-wide flex items-center gap-1.5 leading-none m-0">
+            <h1 className="text-sm font-extrabold text-gray-100 tracking-wide uppercase leading-none m-0">
               pdf tools
             </h1>
           </div>
         </div>
 
         {fileName && (
-          <div className="hidden sm:flex items-center max-w-[300px] md:max-w-[450px] bg-gray-900 border border-gray-800 rounded-full px-4 py-1.5 text-xs text-gray-300 truncate font-mono">
+          <div className="hidden sm:flex items-center max-w-[300px] md:max-w-[450px] bg-gray-900 border border-gray-800 rounded-full px-3 py-1 text-[11px] text-gray-300 truncate font-mono">
             {fileName}
           </div>
         )}
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {originalBytes && (
             <>
               <button
                 type="button"
                 onClick={() => setShowDownloadAllModal(true)}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold text-sm px-3 md:px-5 py-2 md:py-2.5 rounded-lg shadow-md cursor-pointer transition-all duration-300 flex items-center justify-center gap-2"
-                title="Download All Versions"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold text-xs px-2.5 md:px-3.5 py-1.5 md:py-2 rounded-lg shadow-md cursor-pointer transition-all duration-300 flex items-center justify-center gap-1.5"
+                title={dictionary[currentLanguage]?.downloadAll || "Download All Versions"}
               >
-                ⬇ <span className="hidden sm:inline">Download All Versions</span>
+                ⬇ <span className="hidden sm:inline">{dictionary[currentLanguage]?.downloadAll || "Download All Versions"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowCloseConfirm(true)}
-                className="text-red-500 hover:text-red-400 text-lg font-semibold px-2.5 py-2 md:px-3 cursor-pointer transition-colors flex items-center justify-center"
+                className="text-red-500 hover:text-red-400 text-sm font-semibold px-2 py-1.5 cursor-pointer transition-colors flex items-center justify-center"
                 title="Close File"
               >
                 ✖
@@ -1353,10 +2390,10 @@ export default function App() {
             {/* Action selector cards */}
             <div className="text-center mb-8">
               <h2 className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                Offline PDF Toolbox
+                {dictionary[currentLanguage]?.appTitle || "Offline PDF Toolbox"}
               </h2>
               <p className="text-gray-400 text-sm mt-2 max-w-lg">
-                Privacy guaranteed. Your files are processed entirely inside your browser cache and are never uploaded to any server.
+                {dictionary[currentLanguage]?.appDesc}
               </p>
             </div>
 
@@ -1365,14 +2402,14 @@ export default function App() {
               <div className="w-full bg-gray-950 border border-gray-900 rounded-xl p-5 mb-6 text-left">
                 <div className="flex justify-between items-center mb-4 border-b border-gray-900 pb-2">
                   <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-                    Files to Merge ({mergeFiles.length}/10)
+                    {dictionary[currentLanguage]?.filesToMerge || "Files to Merge"} ({mergeFiles.length}/10)
                   </span>
                   <button
                     type="button"
                     onClick={() => setMergeFiles([])}
                     className="text-xs text-red-400 hover:underline"
                   >
-                    Clear All
+                    {dictionary[currentLanguage]?.clearAll || "Clear All"}
                   </button>
                 </div>
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEndFile}>
@@ -1390,14 +2427,14 @@ export default function App() {
                     onClick={executeMerge}
                     className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
                   >
-                    ⚡ Merge PDFs & Edit
+                    {dictionary[currentLanguage]?.mergeAndEdit || "⚡ Merge PDFs & Edit"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setMergeFiles([])}
                     className="bg-gray-900 border border-gray-800 hover:border-gray-700 text-xs px-4 rounded-lg cursor-pointer"
                   >
-                    Cancel
+                    {dictionary[currentLanguage]?.cancel || "Cancel"}
                   </button>
                 </div>
               </div>
@@ -1420,10 +2457,12 @@ export default function App() {
                 📂
               </div>
               <p className="text-sm font-semibold text-gray-300">
-                {activeTool === 'merge' ? 'Drop 2–10 PDF files to merge' : 'Drop your PDF file here'}
+                {activeTool === 'merge' 
+                  ? (dictionary[currentLanguage]?.dropMerge || 'Drop 2–10 PDF files to merge') 
+                  : (dictionary[currentLanguage]?.dropSingle || 'Drop your PDF file here')}
               </p>
               <p className="text-xs text-gray-500 mt-1.5">
-                or click to browse local files
+                {dictionary[currentLanguage]?.orBrowse || "or click to browse local files"}
               </p>
               <input
                 type="file"
@@ -1438,14 +2477,14 @@ export default function App() {
             {/* Tool grid dashboard selector */}
             <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-3.5">
               {[
-                { id: 'merge', label: '🔀 Merge PDFs', desc: 'Combine 2-10 files' },
-                { id: 'reorder', label: '📋 Reorder', desc: 'Rearrange pages' },
-                { id: 'extract_pages', label: '✂️ Extract Pages', desc: 'Separate range subset' },
-                { id: 'link', label: '🔗 Link Area', desc: 'Draw clickable hyperlink' },
-                { id: 'stamp', label: '🖼️ PNG Stamp', desc: 'Place transparent stamp' },
-                { id: 'text', label: '🔤 Add Text', desc: 'Type custom texts' },
-                { id: 'image', label: '🖼️ Add Image', desc: 'Place jpg/png assets' },
-                { id: 'extract_images', label: '🖼️ Extract Img', desc: 'Download PDF assets' },
+                { id: 'merge', label: dictionary[currentLanguage]?.tool_merge || '🔀 Merge PDFs', desc: dictionary[currentLanguage]?.combineFilesDesc || 'Combine 2-10 files' },
+                { id: 'reorder', label: dictionary[currentLanguage]?.tool_reorder || '📋 Reorder', desc: dictionary[currentLanguage]?.rearrangePagesDesc || 'Rearrange pages' },
+                { id: 'extract_pages', label: dictionary[currentLanguage]?.tool_extract_pages || '✂️ Extract Pages', desc: dictionary[currentLanguage]?.separateRangeDesc || 'Separate range subset' },
+                { id: 'link', label: dictionary[currentLanguage]?.tool_link || '🔗 Link Area', desc: dictionary[currentLanguage]?.drawHyperlinkDesc || 'Draw clickable hyperlink' },
+                { id: 'stamp', label: dictionary[currentLanguage]?.tool_stamp || '🖼️ PNG Stamp', desc: dictionary[currentLanguage]?.placeStampDesc || 'Place transparent stamp' },
+                { id: 'text', label: dictionary[currentLanguage]?.tool_text || '🔤 Add Text', desc: dictionary[currentLanguage]?.addCustomTextDesc || 'Type custom texts' },
+                { id: 'image', label: dictionary[currentLanguage]?.tool_image || '🖼️ Add Image', desc: dictionary[currentLanguage]?.addImageAssetsDesc || 'Place jpg/png assets' },
+                { id: 'extract_images', label: dictionary[currentLanguage]?.tool_extract_images || '🖼️ Extract Img', desc: dictionary[currentLanguage]?.extractAssetsDesc || 'Download PDF assets' },
               ].map(tool => (
                 <button
                   type="button"
@@ -1488,7 +2527,7 @@ export default function App() {
                     disabled={zoomLevel === 100}
                     className={`text-xs font-bold whitespace-nowrap w-[90px] text-left transition-colors ${zoomLevel === 100 ? 'text-gray-400 cursor-default' : 'text-blue-400 hover:text-blue-300 cursor-pointer'}`}
                   >
-                    {zoomLevel === 100 ? '🔍 Zoom' : '🔄 Reset Zoom'}
+                    {zoomLevel === 100 ? (dictionary[currentLanguage]?.zoomLabel || '🔍 Zoom') : (dictionary[currentLanguage]?.resetZoom || '🔄 Reset Zoom')}
                   </button>
                   <input
                     type="range"
@@ -1516,8 +2555,8 @@ export default function App() {
                 <div className="w-full max-w-3xl">
                   <div className="flex justify-between items-center mb-6">
                     <div className="text-left">
-                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Reorder Pages</span>
-                      <h3 className="text-lg font-bold text-gray-200">Drag thumbnails to rearrange</h3>
+                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.tool_reorder || "Reorder Pages"}</span>
+                      <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.dragRearrange || "Drag thumbnails to rearrange"}</h3>
                     </div>
                     <div className="hidden md:flex gap-2">
                       <button
@@ -1525,14 +2564,14 @@ export default function App() {
                         onClick={handleSaveReorder}
                         className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
                       >
-                        Apply & Save
+                        {dictionary[currentLanguage]?.applyAndSave?.replace(" Version", "") || "Apply & Save"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveTool(null)}
                         className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
                       >
-                        Cancel
+                        {dictionary[currentLanguage]?.cancel || "Cancel"}
                       </button>
                     </div>
                   </div>
@@ -1548,6 +2587,7 @@ export default function App() {
                             totalPages={totalPages}
                             renderTrigger={renderTrigger}
                             pdfDoc={pdfjsDoc}
+                            pageWord={dictionary[currentLanguage]?.pageWord || "Page"}
                           />
                         ))}
                       </div>
@@ -1559,8 +2599,8 @@ export default function App() {
                 <div className="w-full max-w-3xl text-left">
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Image Extractor</span>
-                      <h3 className="text-lg font-bold text-gray-200">Extracted {extractedImages.length} Images</h3>
+                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{dictionary[currentLanguage]?.extractedImagesTitle || "Image Extractor"}</span>
+                      <h3 className="text-lg font-bold text-gray-200">{dictionary[currentLanguage]?.extractedImagesCount || "Extracted Images"} ({extractedImages.length})</h3>
                     </div>
                     <div className="hidden md:flex gap-2">
                       <button
@@ -1568,14 +2608,14 @@ export default function App() {
                         onClick={downloadAllImagesZip}
                         className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer"
                       >
-                        📦 Download all ZIP
+                        {dictionary[currentLanguage]?.downloadZip || "📦 Download all ZIP"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setExtractedImages([])}
                         className="bg-gray-900 border border-gray-800 text-xs px-4 rounded-lg cursor-pointer"
                       >
-                        Back
+                        {dictionary[currentLanguage]?.back || "Back"}
                       </button>
                     </div>
                   </div>
@@ -1828,7 +2868,7 @@ export default function App() {
                         }}
                         className="bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-400 text-xs px-3 py-2 rounded-lg cursor-pointer"
                       >
-                        {activeTool === 'extract_images' ? 'Back' : 'Cancel'}
+                        {activeTool === 'extract_images' ? (dictionary[currentLanguage]?.back || 'Back') : (dictionary[currentLanguage]?.cancel || 'Cancel')}
                       </button>
                     </div>
                   </>
@@ -1849,9 +2889,9 @@ export default function App() {
               ⚠️
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-100">Close File?</h3>
+              <h3 className="text-base font-bold text-gray-100">{dictionary[currentLanguage]?.closeFileTitle || "Close File?"}</h3>
               <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                Are you sure you want to close this file? Any unsaved changes will be lost.
+                {dictionary[currentLanguage]?.closeFileDesc || "Are you sure you want to close this file? Any unsaved changes will be lost."}
               </p>
             </div>
             <div className="flex gap-2">
@@ -1863,14 +2903,14 @@ export default function App() {
                 }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Close File
+                {dictionary[currentLanguage]?.closeFileBtn || "Close File"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCloseConfirm(false)}
                 className="flex-1 bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Cancel
+                {dictionary[currentLanguage]?.cancel || "Cancel"}
               </button>
             </div>
           </div>
@@ -1885,9 +2925,9 @@ export default function App() {
               ⚠️
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-100">Discard Forward Versions?</h3>
+              <h3 className="text-base font-bold text-gray-100">{dictionary[currentLanguage]?.warningDiscardTitle || "Discard Forward Versions?"}</h3>
               <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                Editing an older version ({versions[warningVersionIndex]?.id}) will split the version history tree. Future versions beyond this point will be discarded. This action cannot be undone.
+                {dictionary[currentLanguage]?.warningDiscardDesc || "Editing an older version will split the version history tree. Future versions beyond this point will be discarded."} ({versions[warningVersionIndex]?.id})
               </p>
             </div>
             <div className="flex gap-2">
@@ -1896,7 +2936,7 @@ export default function App() {
                 onClick={confirmBranchSplit}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Continue & Edit
+                {dictionary[currentLanguage]?.continueEdit || "Continue & Edit"}
               </button>
               <button
                 type="button"
@@ -1906,7 +2946,7 @@ export default function App() {
                 }}
                 className="flex-1 bg-gray-900 border border-gray-800 hover:border-gray-700 text-gray-300 font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
               >
-                Cancel
+                {dictionary[currentLanguage]?.cancel || "Cancel"}
               </button>
             </div>
           </div>
@@ -1919,7 +2959,7 @@ export default function App() {
           <div className="bg-gray-950 border border-gray-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-auto md:my-8 shrink-0">
             <div className="bg-gray-900 border-b border-gray-850 p-4 flex justify-between items-center shrink-0">
               <h3 className="text-sm font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                ⓘ PDF Tool Specifications & Q&A
+                {dictionary[currentLanguage]?.specsTitle || "ⓘ PDF Tool Specifications & Q&A"}
               </h3>
               <button
                 type="button"
@@ -1942,7 +2982,7 @@ export default function App() {
                     <svg className="w-4 h-4 text-purple-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    File Size Limits
+                    {dictionary[currentLanguage]?.limits || "File Size Limits"}
                   </span>
                   <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('limits') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1950,9 +2990,9 @@ export default function App() {
                 </button>
                 {expandedAccordions.includes('limits') && (
                   <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
-                    - Max file upload limit: 50MB (warning shown at 50MB+)<br />
-                    - Max merge size: 100MB total across files<br />
-                    - Max merge files: 10 PDF files
+                    {(dictionary[currentLanguage]?.limitsDesc || "").split('\n').map((line, lIdx) => (
+                      <React.Fragment key={lIdx}>{line}<br /></React.Fragment>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1968,7 +3008,7 @@ export default function App() {
                     <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    Privacy Protection
+                    {dictionary[currentLanguage]?.privacy || "Privacy Protection"}
                   </span>
                   <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('privacy') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1976,7 +3016,7 @@ export default function App() {
                 </button>
                 {expandedAccordions.includes('privacy') && (
                   <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
-                    100% Client-Side execution. Your documents never leave your local device storage. There is no server interaction or database storage.
+                    {dictionary[currentLanguage]?.privacyDesc}
                   </div>
                 )}
               </div>
@@ -1992,7 +3032,7 @@ export default function App() {
                     <svg className="w-4 h-4 text-yellow-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Temporary Session History
+                    {dictionary[currentLanguage]?.session || "Temporary Session History"}
                   </span>
                   <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('session') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -2000,7 +3040,7 @@ export default function App() {
                 </button>
                 {expandedAccordions.includes('session') && (
                   <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
-                    The operation log and version tree are saved in-memory and will be cleared if you refresh the browser page. Download your edits before leaving.
+                    {dictionary[currentLanguage]?.sessionDesc}
                   </div>
                 )}
               </div>
@@ -2017,7 +3057,7 @@ export default function App() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Project Info & Tech Stack
+                    {dictionary[currentLanguage]?.tech || "Project Info & Tech Stack"}
                   </span>
                   <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('tech') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -2025,7 +3065,7 @@ export default function App() {
                 </button>
                 {expandedAccordions.includes('tech') && (
                   <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-400 text-[11px] leading-relaxed">
-                    Client-side only processing using React, Vite, Tailwind CSS, and PDF-lib. <br />
+                    {dictionary[currentLanguage]?.techDesc} <br />
                     <a href="https://github.com/pakcli/client-side-pdf-editor" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline mt-1.5 inline-block font-bold">
                       Source Code on GitHub
                     </a>
@@ -2044,7 +3084,7 @@ export default function App() {
                     <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.172a5 5 0 01-.012 0z" />
                     </svg>
-                    Frequently Asked Questions (Q&A)
+                    {dictionary[currentLanguage]?.faqTitle || "Frequently Asked Questions (Q&A)"}
                   </span>
                   <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${faqOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -2059,14 +3099,14 @@ export default function App() {
                         onClick={() => setExpandedAccordions(prev => prev.includes('q1') ? prev.filter(x => x !== 'q1') : [...prev, 'q1'])}
                         className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
                       >
-                        <span>Q1: How does it not use a server?</span>
+                        <span>{dictionary[currentLanguage]?.q1}</span>
                         <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q1') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                       </button>
                       {expandedAccordions.includes('q1') && (
                         <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
-                          The application runs entirely in your local browser sandbox. It reads files locally via HTML5 File APIs (`ArrayBuffer`) and processes/writes them using client-side JavaScript. There are zero backend HTTP calls or database APIs transmitting your documents.
+                          {dictionary[currentLanguage]?.a1}
                         </div>
                       )}
                     </div>
@@ -2078,7 +3118,7 @@ export default function App() {
                         onClick={() => setExpandedAccordions(prev => prev.includes('q2') ? prev.filter(x => x !== 'q2') : [...prev, 'q2'])}
                         className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
                       >
-                        <span>Q2: How does the workflow work in a client device?</span>
+                        <span>{dictionary[currentLanguage]?.q2}</span>
                         <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q2') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
@@ -2086,10 +3126,10 @@ export default function App() {
                       {expandedAccordions.includes('q2') && (
                         <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
                           <ol className="list-decimal pl-4 flex flex-col gap-1">
-                            <li><strong>Upload:</strong> The PDF is parsed locally using PDF.js.</li>
-                            <li><strong>Editing:</strong> Edits (like reordering, page extraction, overlays) are tracked as lightweight JSON operation logs rather than saving massive PDF files, optimizing memory.</li>
-                            <li><strong>Reconstruction:</strong> When previewing or saving, `pdf-lib` recompiles the PDF by applying the operation queue step-by-step onto the original file array buffer.</li>
-                            <li><strong>Download:</strong> A local Blob URL is generated, allowing the browser to download the file directly from your RAM.</li>
+                            <li>{dictionary[currentLanguage]?.a2_1 || "Upload: The PDF is parsed locally using PDF.js."}</li>
+                            <li>{dictionary[currentLanguage]?.a2_2 || "Editing: Edits are tracked as logs."}</li>
+                            <li>{dictionary[currentLanguage]?.a2_3 || "Reconstruction: pdf-lib compiles the PDF."}</li>
+                            <li>{dictionary[currentLanguage]?.a2_4 || "Download: Local Blob URL download."}</li>
                           </ol>
                         </div>
                       )}
@@ -2102,14 +3142,14 @@ export default function App() {
                         onClick={() => setExpandedAccordions(prev => prev.includes('q3') ? prev.filter(x => x !== 'q3') : [...prev, 'q3'])}
                         className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
                       >
-                        <span>Q3: What is client-side processing?</span>
+                        <span>{dictionary[currentLanguage]?.q3}</span>
                         <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q3') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                       </button>
                       {expandedAccordions.includes('q3') && (
-                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
-                          Client-side processing means all computational tasks, rendering, and file manipulations happen directly on the user's local machine (the client) within the browser's execution engine, instead of sending data to a remote cloud server to be processed.
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-455 text-[11px] leading-relaxed">
+                          {dictionary[currentLanguage]?.a3}
                         </div>
                       )}
                     </div>
@@ -2121,14 +3161,14 @@ export default function App() {
                         onClick={() => setExpandedAccordions(prev => prev.includes('q4') ? prev.filter(x => x !== 'q4') : [...prev, 'q4'])}
                         className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
                       >
-                        <span>Q4: What is the tech stack needed?</span>
+                        <span>{dictionary[currentLanguage]?.q4}</span>
                         <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q4') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                       </button>
                       {expandedAccordions.includes('q4') && (
-                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-450 text-[11px] leading-relaxed">
-                          The app is built using React, Vite, and Tailwind CSS. It leverages Mozilla's <strong>PDF.js</strong> to read and render PDF pages onto HTML5 canvas elements, <strong>PDF-Lib</strong> to create/modify PDF binary bytes offline, and <strong>JSZip</strong> to bundle files into a ZIP inside the browser.
+                        <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-455 text-[11px] leading-relaxed">
+                          {dictionary[currentLanguage]?.a4}
                         </div>
                       )}
                     </div>
@@ -2140,14 +3180,14 @@ export default function App() {
                         onClick={() => setExpandedAccordions(prev => prev.includes('q5') ? prev.filter(x => x !== 'q5') : [...prev, 'q5'])}
                         className="w-full flex items-center justify-between text-left p-3 hover:bg-gray-900/30 transition-all font-bold text-gray-300"
                       >
-                        <span>Q5: What is PDF-Lib for this, and is it using my data?</span>
+                        <span>{dictionary[currentLanguage]?.q5}</span>
                         <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expandedAccordions.includes('q5') ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                       </button>
                       {expandedAccordions.includes('q5') && (
                         <div className="p-3 border-t border-gray-900/60 bg-gray-950/40 text-gray-455 text-[11px] leading-relaxed">
-                          PDF-Lib is a pure JavaScript library that reads, modifies, and compiles PDF binary structures directly in the browser's memory. It does not collect, store, or transmit your data. The program is fully offline-able because all code libraries (Vite bundles, PDF.js, PDF-lib, JSZip) are served directly to your browser cache, running independently of the internet once loaded.
+                          {dictionary[currentLanguage]?.a5}
                         </div>
                       )}
                     </div>
@@ -2162,7 +3202,7 @@ export default function App() {
                 onClick={() => setInfoOpen(false)}
                 className="bg-gray-800 hover:bg-gray-750 text-purple-400 font-bold text-xs px-5 py-2 rounded-lg cursor-pointer transition-colors"
               >
-                Close Info Sheet
+                {dictionary[currentLanguage]?.closeSheet || "Close Info Sheet"}
               </button>
             </div>
           </div>
