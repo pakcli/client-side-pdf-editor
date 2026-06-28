@@ -1195,6 +1195,56 @@ export default function App() {
     }
   }, [theme]);
 
+  // Precache crucial assets in the background to make the app 100% offline-ready
+  useEffect(() => {
+    const precacheAssets = async () => {
+      const getLocalAssetUrl = (filename) => {
+        const base = import.meta.env.BASE_URL || '/';
+        let resolvedBase = base;
+        if (base.startsWith('.')) {
+          const pathname = window.location.pathname;
+          const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+          resolvedBase = dir + base.slice(1);
+        }
+        resolvedBase = resolvedBase.replace(/\/+/g, '/');
+        return new URL(resolvedBase + filename, window.location.origin).toString();
+      };
+
+      const localAssets = [
+        'pdf.worker.min.mjs',
+        'favicon.svg',
+        'icons.svg'
+      ];
+      
+      const flagUrls = languages.map(lang => lang.flagUrl).filter(Boolean);
+
+      // Trigger background fetches for local assets
+      for (const asset of localAssets) {
+        try {
+          const url = getLocalAssetUrl(asset);
+          await fetch(url);
+          console.log(`Pre-cached static asset: ${asset}`);
+        } catch (e) {
+          console.warn(`Failed to pre-fetch asset: ${asset}`, e);
+        }
+      }
+
+      // Trigger background fetches for flag CDN images
+      for (const url of flagUrls) {
+        try {
+          await fetch(url);
+          console.log(`Pre-cached flag CDN image: ${url}`);
+        } catch (e) {
+          console.warn(`Failed to pre-fetch flag image: ${url}`, e);
+        }
+      }
+    };
+    
+    // Delay slightly to not block initial rendering/main thread
+    const timer = setTimeout(precacheAssets, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Prevent unsaved data loss on refresh/close
   useEffect(() => {
     const handleBeforeUnload = (e) => {

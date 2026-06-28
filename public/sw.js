@@ -28,8 +28,13 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Skip browser extensions or other origins (except basic files and CDN libraries)
-  if (url.origin !== self.location.origin && !url.origin.includes('cdnjs') && !url.origin.includes('unpkg')) {
+  // Skip browser extensions or other origins (except basic files, CDNs, and flag assets)
+  if (
+    url.origin !== self.location.origin &&
+    !url.origin.includes('cdnjs') &&
+    !url.origin.includes('unpkg') &&
+    !url.origin.includes('flagcdn.com')
+  ) {
     return;
   }
 
