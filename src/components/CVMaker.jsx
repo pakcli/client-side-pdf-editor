@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PDFDocument, rgb, StandardFonts, PDFName, PDFString } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 
 // Default templates from developer_brief.md
 const DEFAULT_HTML_TEMPLATE = `<!DOCTYPE html>
@@ -799,10 +800,71 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
         link: 'M 8 1 C 4.1 1 1 4.1 1 8 C 1 11.9 4.1 15 8 15 C 11.9 15 15 11.9 15 8 C 15 4.1 11.9 1 8 1 Z M 9.5 2.5 C 10.2 3.9 10.7 5.4 10.8 7 L 5.2 7 C 5.3 5.4 5.8 3.9 6.5 2.5 C 7 2.2 7.5 2 8 2 C 8.5 2 9 2.2 9.5 2.5 Z M 4.8 8 L 11.2 8 C 11.1 9.6 10.6 11.1 9.5 12.5 C 9 12.8 8.5 13 8 13 C 7.5 13 7 12.8 6.5 12.5 C 5.8 11.1 5.3 9.6 4.8 8 Z M 2.1 8 L 3.7 8 C 3.9 9.9 4.4 11.8 5.2 13.4 C 3.6 12.2 2.5 10.2 2.1 8 Z M 2.1 7 C 2.5 4.8 3.6 2.8 5.2 1.6 C 4.4 3.2 3.9 5.1 3.7 7 L 2.1 7 Z M 12.3 1.6 C 13.9 2.8 15 4.8 15.4 7 L 13.8 7 C 13.6 5.1 13.1 3.2 12.3 1.6 Z M 13.8 8 L 15.4 8 C 15 10.2 13.9 12.2 12.3 13.4 C 13.1 11.8 13.6 9.9 13.8 8 Z'
       };
       
-      const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-      const fontBoldSerif = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+      // Use fontkit + local TTF fonts served from public/fonts/ (same-origin, works offline).
+      // Fonts match the HTML preview exactly: Inter (body) + Playfair Display SemiBold (name).
+      pdfDoc.registerFontkit(fontkit);
+
+      const basePath = window.location.origin + (import.meta.env.BASE_URL || '/');
+      const fetchLocalFont = async (filename) => {
+        const res = await fetch(basePath.replace(/\/$/, '') + '/fonts/' + filename);
+        if (!res.ok) throw new Error(`Missing local font: ${filename}`);
+        return await res.arrayBuffer();
+      };
+
+      let fontRegular, fontBold, fontItalic, fontBoldSerif;
+      try {
+        const [interReg, interBold, interItalic] = await Promise.all([
+          fetchLocalFont('Inter-Regular.ttf'),
+          fetchLocalFont('Inter-SemiBold.ttf'),
+          fetchLocalFont('Inter-Italic.ttf')
+        ]);
+        fontRegular = await pdfDoc.embedFont(interReg);
+        fontBold    = await pdfDoc.embedFont(interBold);
+        fontItalic  = await pdfDoc.embedFont(interItalic);
+      } catch (_) {
+        fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        fontBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        fontItalic  = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+      }
+      
+      // Playfair Display SemiBold for name header (serif accent matching HTML preview)
+      try {
+        const playfairBuf = await fetchLocalFont('PlayfairDisplay-SemiBold.ttf');
+        fontBoldSerif = await pdfDoc.embedFont(playfairBuf);
+      } catch (_) {
+        fontBoldSerif = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+      }
+      
+      // Embed Flaticon uicons fonts (same fonts used in HTML preview) for exact icon matching
+      // Codepoints extracted from the CSS: fi-rr-phone-call=U+EBDE, fi-rr-envelope=U+E5FE,
+      // fi-rr-marker=U+EA01, fi-rr-globe=U+E793, fi-brands-github=U+E787,
+      // fi-brands-linkedin=U+E9A9, fi-brands-twitter=U+F07C, fi-brands-dribbble=U+E5AE
+      let fontIconRR = null;
+      let fontIconBrands = null;
+      try {
+        const [rrBuf, brandsBuf] = await Promise.all([
+          fetchLocalFont('uicons-regular-rounded.ttf'),
+          fetchLocalFont('uicons-brands.ttf')
+        ]);
+        fontIconRR     = await pdfDoc.embedFont(rrBuf);
+        fontIconBrands = await pdfDoc.embedFont(brandsBuf);
+      } catch (_) {
+        // Icons will fall back to text char if font unavailable
+      }
+      
+      // Map contact type → { font, codepoint }
+      const ICON_CODEPOINTS = {
+        phone:    { font: 'rr',     cp: 0xEBDE },
+        email:    { font: 'rr',     cp: 0xE5FE },
+        location: { font: 'rr',     cp: 0xEA01 },
+        website:  { font: 'rr',     cp: 0xE793 },
+        link:     { font: 'rr',     cp: 0xE793 },
+        github:   { font: 'brands', cp: 0xE787 },
+        linkedin: { font: 'brands', cp: 0xE9A9 },
+        twitter:  { font: 'brands', cp: 0xF07C },
+        dribbble: { font: 'brands', cp: 0xE5AE },
+        generic:  { font: 'rr',     cp: 0xE793 }
+      };
       
       const PAGE_SIZES = {
         a4: [595.28, 841.89],
@@ -833,14 +895,17 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
         page.node.addAnnot(linkRef);
       };
       
-      let y = height - 50;
-      const margin = 50;
+      // Margins matching the clean original style (50pt)
+      const marginTop = 50;
+      const marginSide = 50;
+      let y = height - marginTop;
+      const margin = marginSide;
       const contentWidth = width - 2 * margin;
       
       const checkPageOverflow = (neededHeight) => {
-        if (y - neededHeight < 50) {
+        if (y - neededHeight < marginTop) {
           page = pdfDoc.addPage(dims);
-          y = height - 50;
+          y = height - marginTop;
           return true;
         }
         return false;
@@ -921,95 +986,116 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
         }
       };
       
-      // 1. Centered Header (Name & Role aligned beside vertical accent bar)
+      // ── 1. Centered Header matching CSS exactly ──
+      // CSS: h1 { font-size: 32px } → 32px * (72/96) = 24pt
+      // CSS: .job-title { font-size: 14px } → 14px * (72/96) = 10.5pt
+      // CSS: .vertical-bar { width: 3px; height: 45px }
+      // CSS: .name-container { gap: 15px }
+      // CSS: .name-block h1 margin-bottom ≈ 3px
       const nameText = (profile.name || '').toUpperCase();
       const roleText = (profile.role || '').toUpperCase();
       
-      const nameW = fontBoldSerif.widthOfTextAtSize(nameText, 20);
-      const roleW = fontRegular.widthOfTextAtSize(roleText, 10.5);
-      const nameBlockW = Math.max(nameW, roleW);
+      const nameFontSize = 24;   // 32px CSS
+      const roleFontSize = 10.5; // 14px CSS
       
-      const barWidth = 3;
-      const gap = 12;
-      const barHeight = (profile.name ? 22 : 0) + (profile.role ? 12 : 0) + 6;
+      const nameW = fontBoldSerif.widthOfTextAtSize(nameText, nameFontSize);
+      const roleW = fontBoldSerif.widthOfTextAtSize(roleText, roleFontSize); // use bold for width calc
+      // role is fontRegular, recalc
+      const roleWActual = fontRegular.widthOfTextAtSize(roleText, roleFontSize);
+      const nameBlockW = Math.max(nameW, roleWActual);
+      
+      const barWidth = 2.25; // 3px → 3 * 0.75 = 2.25pt
+      const gap = 11.25;    // 15px → 15 * 0.75 = 11.25pt
+      // bar height: 45px → 33.75pt
+      const barHeightPt = 33.75;
       
       const totalHeaderW = barWidth + gap + nameBlockW;
       const startX = (width - totalHeaderW) / 2;
       
-      checkPageOverflow(barHeight + 20);
+      // vertical center of the name+role block
+      // name line: 24pt descender top, role line: 10.5pt
+      // total text height ≈ 24 + 3 + 10.5 = 37.5pt
+      const headerTextH = nameFontSize + 2.25 + roleFontSize;
+      const barTopY = y - (headerTextH - barHeightPt) / 2 - 0;
       
-      // Draw vertical bar
+      checkPageOverflow(headerTextH + 10);
+      
+      // Draw vertical accent bar (CSS: background-color: #333333)
       page.drawRectangle({
         x: startX,
-        y: y - barHeight + 5,
+        y: barTopY - barHeightPt,
         width: barWidth,
-        height: barHeight - 10,
+        height: barHeightPt,
         color: rgb(0.2, 0.2, 0.2)
       });
       
-      let textY = y;
+      // Draw name — baseline from top of row
       if (profile.name) {
         page.drawText(nameText, {
           x: startX + barWidth + gap,
-          y: textY - 18,
-          size: 18,
+          y: y - nameFontSize,
+          size: nameFontSize,
           font: fontBoldSerif,
-          color: rgb(0.13, 0.13, 0.18)
+          color: rgb(0.13, 0.13, 0.13)
         });
-        textY -= 22;
       }
       
+      // Draw role — 2.25pt gap below name
       if (profile.role) {
         page.drawText(roleText, {
           x: startX + barWidth + gap,
-          y: textY - 10,
-          size: 10,
+          y: y - nameFontSize - 2.25 - roleFontSize,
+          size: roleFontSize,
           font: fontRegular,
-          color: rgb(0.4, 0.4, 0.45)
+          color: rgb(0.33, 0.33, 0.33)
         });
       }
       
-      y -= barHeight + 8;
+      y -= headerTextH + 10; // 10pt gap below header block (CSS: margin-bottom: 10px → 7.5pt ≈ 10)
       
-      // 2. Centered Contacts with Vector SVG Icons
+      // 2. Centered Contacts with Flaticon icon glyphs (exact match to HTML preview)
       if (profile.contacts && profile.contacts.length > 0) {
         const activeContacts = profile.contacts.filter(c => c.value && c.include !== false);
         if (activeContacts.length > 0) {
+          const iconFontSizeC = 8.5;
+          const iconGapC = 3.5;
+          
           const itemsData = activeContacts.map(c => {
             const text = c.value;
             const textW = fontRegular.widthOfTextAtSize(text, 8.5);
             
-            // Auto-detect inferred type from value contents
-            let inferredType = 'location';
-            const val = (text || '').trim().toLowerCase();
-            const hasLetters = /[a-z]/.test(val);
-            
-            if (val.includes('@')) {
-              inferredType = 'email';
-            } else if (val.includes('github.com') || val.includes('github')) {
-              inferredType = 'github';
-            } else if (val.includes('linkedin.com') || val.includes('linkedin')) {
-              inferredType = 'linkedin';
-            } else if (val.includes('http') || val.includes('www') || val.includes('.com') || val.includes('.net') || val.includes('.org') || val.includes('.me') || val.includes('.info') || val.includes('.io')) {
-              inferredType = 'website';
-            } else if (!hasLetters && /^[+\d\s()-]{7,}$/.test(val)) {
-              inferredType = 'phone';
-            } else {
-              inferredType = 'location';
+            // Use the explicit user-selected type, fall back to auto-detection
+            let contactType = c.type || 'generic';
+            if (contactType === 'generic' || !ICON_CODEPOINTS[contactType]) {
+              // Auto-detect from value
+              const val = (text || '').trim().toLowerCase();
+              const hasLetters = /[a-z]/.test(val);
+              if (val.includes('@')) contactType = 'email';
+              else if (val.includes('github.com') || val.includes('github')) contactType = 'github';
+              else if (val.includes('linkedin.com') || val.includes('linkedin')) contactType = 'linkedin';
+              else if (val.includes('http') || val.includes('www') || val.includes('.com') || val.includes('.net') || val.includes('.org') || val.includes('.me') || val.includes('.io')) contactType = 'website';
+              else if (!hasLetters && /^[+\d\s()-]{7,}$/.test(val)) contactType = 'phone';
+              else contactType = 'location';
             }
             
-            const hasIcon = ['phone', 'email', 'location', 'website', 'link', 'github', 'linkedin'].includes(inferredType);
-            const iconWidth = hasIcon ? 13 : 0; // 8px icon + 5px gap
+            const iconDef = ICON_CODEPOINTS[contactType] || ICON_CODEPOINTS.generic;
+            const iconFont = iconDef.font === 'brands' ? fontIconBrands : fontIconRR;
+            let iconWidth = 0;
+            if (iconFont) {
+              const iconChar = String.fromCodePoint(iconDef.cp);
+              iconWidth = iconFont.widthOfTextAtSize(iconChar, iconFontSizeC) + iconGapC;
+            }
+            
             return {
-              type: c.type,
-              inferredType,
+              contactType,
               value: text,
               width: textW + iconWidth,
-              hasIcon
+              hasIcon: !!iconFont
             };
           });
           
-          const spacerStr = '      •      ';
+          // CSS: contact-info separator is '  •  ' with spacing
+          const spacerStr = '  •  ';
           const spacerW = fontRegular.widthOfTextAtSize(spacerStr, 8.5);
           
           const totalContactsW = itemsData.reduce((sum, item) => sum + item.width, 0) + (itemsData.length - 1) * spacerW;
@@ -1019,107 +1105,26 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
           
           itemsData.forEach((item, idx) => {
             const iconColor = rgb(0.4, 0.4, 0.45);
+            const iconFontSize = 8.5;
+            const iconGap = 3.5;
             
             if (item.hasIcon) {
-              if (item.inferredType === 'phone') {
-                // Draw a beautiful modern mobile phone natively
-                page.drawRectangle({
-                  x: currentX + 1.5,
-                  y: y - 8.5 + 0.5,
-                  width: 7,
-                  height: 10,
-                  borderColor: iconColor,
-                  borderThickness: 1
-                });
-                page.drawLine({
-                  start: { x: currentX + 1.5, y: y - 8.5 + 2.5 },
-                  end: { x: currentX + 8.5, y: y - 8.5 + 2.5 },
-                  thickness: 0.8,
-                  color: iconColor
-                });
-                page.drawCircle({
-                  x: currentX + 5,
-                  y: y - 8.5 + 1.5,
-                  size: 0.6,
-                  color: iconColor
-                });
-                currentX += 13;
-              } else if (item.inferredType === 'email') {
-                // Draw outline envelope natively
-                page.drawRectangle({
+              const iconDef = ICON_CODEPOINTS[item.contactType] || ICON_CODEPOINTS.generic;
+              const iconFont = iconDef.font === 'brands' ? fontIconBrands : fontIconRR;
+              if (iconFont) {
+                // Render the exact same Flaticon glyph used in HTML preview
+                const iconChar = String.fromCodePoint(iconDef.cp);
+                page.drawText(iconChar, {
                   x: currentX,
-                  y: y - 8.5 + 1,
-                  width: 10,
-                  height: 7,
-                  borderColor: iconColor,
-                  borderThickness: 1
-                });
-                page.drawLine({
-                  start: { x: currentX, y: y - 8.5 + 8 },
-                  end: { x: currentX + 5, y: y - 8.5 + 4.5 },
-                  thickness: 0.8,
+                  y: y - iconFontSize,
+                  size: iconFontSize,
+                  font: iconFont,
                   color: iconColor
                 });
-                page.drawLine({
-                  start: { x: currentX + 5, y: y - 8.5 + 4.5 },
-                  end: { x: currentX + 10, y: y - 8.5 + 8 },
-                  thickness: 0.8,
-                  color: iconColor
-                });
-                currentX += 13;
-              } else if (item.inferredType === 'location') {
-                // Teardrop Pin drawn natively
-                // Outer head circle
-                page.drawCircle({
-                  x: currentX + 5,
-                  y: y - 8.5 + 5.5,
-                  size: 3.5,
-                  borderColor: iconColor,
-                  borderThickness: 1
-                });
-                // Inner Dot
-                page.drawCircle({
-                  x: currentX + 5,
-                  y: y - 8.5 + 5.5,
-                  size: 1.0,
-                  color: iconColor
-                });
-                // Pin pointer lines
-                page.drawLine({
-                  start: { x: currentX + 1.8, y: y - 8.5 + 4 },
-                  end: { x: currentX + 5, y: y - 8.5 + 0.5 },
-                  thickness: 1,
-                  color: iconColor
-                });
-                page.drawLine({
-                  start: { x: currentX + 8.2, y: y - 8.5 + 4 },
-                  end: { x: currentX + 5, y: y - 8.5 + 0.5 },
-                  thickness: 1,
-                  color: iconColor
-                });
-                currentX += 13;
+                const iconW = iconFont.widthOfTextAtSize(iconChar, iconFontSize);
+                currentX += iconW + iconGap;
               } else {
-                // Draw Globe grid natively for website, github, linkedin, etc.
-                page.drawCircle({
-                  x: currentX + 5,
-                  y: y - 8.5 + 4.3,
-                  size: 4.5,
-                  borderColor: iconColor,
-                  borderThickness: 1
-                });
-                page.drawLine({
-                  start: { x: currentX + 0.5, y: y - 8.5 + 4.3 },
-                  end: { x: currentX + 9.5, y: y - 8.5 + 4.3 },
-                  thickness: 0.8,
-                  color: iconColor
-                });
-                page.drawLine({
-                  start: { x: currentX + 5, y: y - 8.5 + 0.3 },
-                  end: { x: currentX + 5, y: y - 8.5 + 8.3 },
-                  thickness: 0.8,
-                  color: iconColor
-                });
-                currentX += 13;
+                currentX += 10;
               }
             }
             
@@ -1133,9 +1138,9 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
             
             const textWidth = fontRegular.widthOfTextAtSize(item.value, 8.5);
             
-            if (['email', 'github', 'linkedin', 'website', 'link'].includes(item.inferredType)) {
+            if (['email', 'github', 'linkedin', 'website', 'link', 'twitter', 'dribbble'].includes(item.contactType)) {
               let targetUrl = item.value;
-              if (item.inferredType === 'email') {
+              if (item.contactType === 'email') {
                 targetUrl = `mailto:${item.value}`;
               } else if (!item.value.startsWith('http://') && !item.value.startsWith('https://')) {
                 targetUrl = `https://${item.value}`;
@@ -1169,45 +1174,52 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
         }
       }
       
-      // Divider line
-      y -= 8;
+      // Divider line below contacts (CSS: .cv-header margin-bottom: 25px → 18.75pt)
+      y -= 6;
       page.drawLine({
         start: { x: margin, y: y },
         end: { x: width - margin, y: y },
-        thickness: 1,
-        color: rgb(0.85, 0.85, 0.85)
+        thickness: 0.75,
+        color: rgb(0.88, 0.88, 0.88)
       });
-      y -= 15;
+      y -= 14;
       
-      // Section Header drawer with Light Gray Background Banner
+      // Section Header drawer matching CSS:
+      // .section-title { font-size: 14px→10.5pt; font-weight:600; background:#eaeaea; padding:5px 10px→3.75pt 7.5pt; margin-bottom:12px→9pt }
       const drawSectionTitle = (title) => {
         checkPageOverflow(30);
-        y -= 8;
+        // CSS: .cv-section margin-bottom: 22px = 16.5pt; prior section's bottom adds spacing
+        // Banner: height = font(10.5) + padding-top(3.75) + padding-bottom(3.75) = 18pt
+        const bannerHeight = 18;
+        const bannerPaddingLeft = 7.5;
+        const bannerPaddingV = 3.75;
         
         page.drawRectangle({
           x: margin,
-          y: y - 18,
+          y: y - bannerHeight,
           width: contentWidth,
-          height: 18,
-          color: rgb(0.92, 0.92, 0.92)
+          height: bannerHeight,
+          color: rgb(0.918, 0.918, 0.918) // #eaeaea
         });
         
         page.drawText(title.toUpperCase(), {
-          x: margin + 8,
-          y: y - 13,
-          size: 9,
+          x: margin + bannerPaddingLeft,
+          y: y - bannerHeight + bannerPaddingV,
+          size: 10.5,
           font: fontBold,
-          color: rgb(0.15, 0.15, 0.15)
+          color: rgb(0.133, 0.133, 0.133) // #222
         });
         
-        y -= 26;
+        // margin-bottom: 12px = 9pt after banner
+        y -= bannerHeight + 9;
       };
       
-      // 3. Career Objective
+      // 3. Career Objective (matches HTML template: "Career Objective")
       if (profile.careerObjective) {
-        drawSectionTitle(currentLanguage === 'id' ? 'Ringkasan Karir' : 'Career Summary');
-        drawWrappedText(profile.careerObjective, 9.5, fontRegular, rgb(0.15, 0.15, 0.15), 1.3);
-        y -= 10;
+        drawSectionTitle(currentLanguage === 'id' ? 'Ringkasan Karir' : 'Career Objective');
+        // CSS: .section-content { font-size: 13px→9.75pt; line-height: 1.5; padding: 0 5px }
+        drawWrappedText(profile.careerObjective, 9.75, fontRegular, rgb(0.2, 0.2, 0.2), 1.5);
+        y -= 16.5; // CSS: .cv-section margin-bottom: 22px = 16.5pt
       }
       
       // Filter lists from the records state
@@ -1215,139 +1227,103 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
       const educationRecs = records.filter(r => r.type === 'education' && r.include);
       const achievementRecs = records.filter(r => r.type === 'achievement' && r.include);
       
+      // ── Helper to draw a record item row (experience/education/achievement) ──
+      // CSS: .item-header { font-size: 13.5px→10.125pt; font-weight:600; margin-bottom:2px }
+      // CSS: .item-title color: #2d3748, .item-org: uppercase text-secondary font-size:12px
+      // CSS: .item-timeline { font-size: 12.5px→9.375pt; color:#2d3748 }
+      // CSS: .item-meta { font-size:12px→9pt; font-style:italic; color:text-secondary; margin-bottom:4px }
+      // CSS: .item-desc { font-size:12.5px→9.375pt }
+      const itemTitleSize = 10.125;
+      const itemMetaSize = 9;
+      const itemDescSize = 9.375;
+      const itemTimelineSize = 9.375;
+
+      const drawRecordItem = (rec, showNilai = false, nilaiLabel = 'GPA / Score') => {
+        checkPageOverflow(40);
+        const rowY = y;
+        
+        // Title + Org on left — CSS: .item-title, .item-org
+        const titleStr = rec.title || '';
+        const orgStr = rec.organization ? `, ${rec.organization.toUpperCase()}` : '';
+        const fullTitleStr = titleStr + orgStr;
+        
+        // Just draw the whole thing in bold; org portion is styled lighter in HTML but same weight here
+        page.drawText(fullTitleStr, {
+          x: margin,
+          y: rowY - itemTitleSize,
+          size: itemTitleSize,
+          font: fontBold,
+          color: rgb(0.176, 0.216, 0.282) // #2d3748
+        });
+        
+        // Date on right — CSS: .item-timeline
+        const dateStr = rec.dateend
+          ? `${rec.datestart || ''}  –  ${rec.dateend}`
+          : `${rec.datestart || ''}`;
+        const dateWidth = fontItalic.widthOfTextAtSize(dateStr, itemTimelineSize);
+        page.drawText(dateStr, {
+          x: width - margin - dateWidth,
+          y: rowY - itemTimelineSize,
+          size: itemTimelineSize,
+          font: fontItalic,
+          color: rgb(0.176, 0.216, 0.282) // #2d3748
+        });
+        
+        // margin-bottom: 2px = 1.5pt
+        y -= itemTitleSize + 1.5;
+        
+        // Meta row — CSS: .item-meta
+        const metaParts = [];
+        if (rec.workType) metaParts.push(rec.workType);
+        if (rec.place) metaParts.push(rec.place);
+        if (showNilai && rec.nilai) metaParts.push(`${nilaiLabel}: ${rec.nilai}`);
+        
+        if (metaParts.length > 0) {
+          const metaStr = metaParts.join('  |  ');
+          page.drawText(metaStr, {
+            x: margin,
+            y: y - itemMetaSize,
+            size: itemMetaSize,
+            font: fontItalic,
+            color: rgb(0.333, 0.333, 0.333) // #555
+          });
+          // margin-bottom: 4px = 3pt
+          y -= itemMetaSize + 3;
+        }
+        
+        if (rec.description) {
+          drawDescription(rec.description);
+        }
+        // CSS: .experience-item margin-bottom: 14px = 10.5pt
+        y -= 10.5;
+      };
+
       // 4. Experiences
       if (experienceRecs.length > 0) {
         drawSectionTitle(currentLanguage === 'id' ? 'Pengalaman Kerja' : 'Work Experience');
-        
         for (const rec of experienceRecs) {
-          checkPageOverflow(40);
-          
-          const headerStr = `${rec.title || ''},  ${rec.organization || ''}`;
-          page.drawText(headerStr, {
-            x: margin,
-            y: y - 10,
-            size: 9.5,
-            font: fontBold,
-            color: rgb(0.1, 0.1, 0.1)
-          });
-          
-          const dateStr = `${rec.datestart || ''}  -  ${rec.dateend || ''}`;
-          const dateWidth = fontRegular.widthOfTextAtSize(dateStr, 8.5);
-          page.drawText(dateStr, {
-            x: width - margin - dateWidth,
-            y: y - 10,
-            size: 8.5,
-            font: fontItalic,
-            color: rgb(0.4, 0.4, 0.4)
-          });
-          y -= 13;
-          
-          if (rec.workType || rec.place) {
-            const metaStr = [rec.workType, rec.place].filter(Boolean).join('  |  ');
-            page.drawText(metaStr, {
-              x: margin,
-              y: y - 8,
-              size: 8,
-              font: fontItalic,
-              color: rgb(0.45, 0.45, 0.45)
-            });
-            y -= 11;
-          }
-          
-          if (rec.description) {
-            drawDescription(rec.description);
-          }
-          y -= 8;
+          drawRecordItem(rec, false);
         }
+        y -= 6; // Extra space to make total gap between sections 16.5pt
       }
       
       // 5. Education
       if (educationRecs.length > 0) {
         drawSectionTitle(currentLanguage === 'id' ? 'Pendidikan' : 'Education');
-        
         for (const rec of educationRecs) {
-          checkPageOverflow(40);
-          
-          const headerStr = `${rec.title || ''},  ${rec.organization || ''}`;
-          page.drawText(headerStr, {
-            x: margin,
-            y: y - 10,
-            size: 9.5,
-            font: fontBold,
-            color: rgb(0.1, 0.1, 0.1)
-          });
-          
-          const dateStr = `${rec.datestart || ''}  -  ${rec.dateend || ''}`;
-          const dateWidth = fontRegular.widthOfTextAtSize(dateStr, 8.5);
-          page.drawText(dateStr, {
-            x: width - margin - dateWidth,
-            y: y - 10,
-            size: 8.5,
-            font: fontItalic,
-            color: rgb(0.4, 0.4, 0.4)
-          });
-          y -= 13;
-          
-          if (rec.nilai) {
-            page.drawText(`GPA / Score: ${rec.nilai}`, {
-              x: margin,
-              y: y - 8,
-              size: 8,
-              font: fontRegular,
-              color: rgb(0.3, 0.3, 0.3)
-            });
-            y -= 11;
-          }
-          
-          if (rec.description) {
-            drawDescription(rec.description);
-          }
-          y -= 8;
+          // Show GPA in meta row
+          drawRecordItem({ ...rec, workType: rec.nilai ? `GPA / Score: ${rec.nilai}` : (rec.workType || ''), place: rec.place }, false);
         }
+        y -= 6; // Extra space to make total gap 16.5pt
       }
       
       // 6. Achievements
       if (achievementRecs.length > 0) {
         drawSectionTitle(currentLanguage === 'id' ? 'Penghargaan & Sertifikasi' : 'Achievements & Certifications');
-        
         for (const rec of achievementRecs) {
-          checkPageOverflow(40);
-          
-          const headerStr = `${rec.title || ''},  ${rec.organization || ''}`;
-          page.drawText(headerStr, {
-            x: margin,
-            y: y - 10,
-            size: 9.5,
-            font: fontBold,
-            color: rgb(0.1, 0.1, 0.1)
-          });
-          
-          const dateStr = `${rec.datestart || ''}`;
-          const dateWidth = fontRegular.widthOfTextAtSize(dateStr, 8.5);
-          page.drawText(dateStr, {
-            x: width - margin - dateWidth,
-            y: y - 10,
-            size: 8.5,
-            font: fontItalic,
-            color: rgb(0.4, 0.4, 0.4)
-          });
-          y -= 13;
-          
-          if (rec.nilai) {
-            page.drawText(`Credential ID: ${rec.nilai}`, {
-              x: margin,
-              y: y - 8,
-              size: 8,
-              font: fontRegular,
-              color: rgb(0.3, 0.3, 0.3)
-            });
-            y -= 11;
-          }
-          
-          if (rec.description) {
-            drawDescription(rec.description);
-          }
-          y -= 8;
+          // CSS template: "Penerbit: {{ORGANIZATION}} | Skor: {{NILAI}}"
+          const achievMeta = rec.nilai ? `Penerbit: ${rec.organization || ''} | Skor: ${rec.nilai}` : (rec.organization || '');
+          drawRecordItem({ ...rec, organization: '', workType: achievMeta, place: '' }, false);
         }
       }
       
@@ -2292,7 +2268,7 @@ workType: hybrid
             >
               🖨️ {currentLanguage === 'id' ? 'Cetak / Simpan' : 'Print / Save'}
             </button>
-            {onLoadPDF && (
+            {/* {onLoadPDF && (
               <button
                 type="button"
                 id="assign-direct-btn"
@@ -2302,7 +2278,7 @@ workType: hybrid
               >
                 ⚡ {currentLanguage === 'id' ? 'Kirim ke PDF Editor' : 'Save & Edit in Editor'}
               </button>
-            )}
+            )} */}
           </div>
         </div>
 
