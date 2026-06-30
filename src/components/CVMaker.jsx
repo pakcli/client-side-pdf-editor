@@ -549,6 +549,61 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
   // UI state
   const [activeTab, setActiveTab] = useState('editor'); // 'editor', 'html', 'css'
   const [zoom, setZoom] = useState(0.8);
+  const [mobileView, setMobileView] = useState('edit'); // 'edit', 'preview'
+  
+  // Touch Gestures Refs & State for Pinch-to-Zoom
+  const touchStartDistRef = useRef(0);
+  const touchStartZoomRef = useRef(0);
+  const zoomRef = useRef(zoom);
+  const previewContainerRef = useRef(null);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartDistRef.current = dist;
+        touchStartZoomRef.current = zoomRef.current;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2 && touchStartDistRef.current > 0) {
+        e.preventDefault(); // Stop default browser zoom
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const ratio = dist / touchStartDistRef.current;
+        const newZoom = Math.min(2.0, Math.max(0.3, Number((touchStartZoomRef.current * ratio).toFixed(2))));
+        setZoom(newZoom);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchStartDistRef.current = 0;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
   const [isCopied, setIsCopied] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState({});
   const [activeDropdownId, setActiveDropdownId] = useState(null);
@@ -1440,10 +1495,10 @@ export default function CVMaker({ currentLanguage, onLoadPDF, onBack }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative bg-gray-950 text-gray-200">
+    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative bg-gray-950 text-gray-200 pb-16 md:pb-0">
       
       {/* LEFT SIDEBAR: Controls and Inline Data Inputs */}
-      <div className="w-full md:w-[420px] shrink-0 border-r border-gray-900 flex flex-col bg-gray-950/80 overflow-hidden">
+      <div className={`w-full md:w-[420px] shrink-0 border-r border-gray-900 flex flex-col bg-gray-950/80 overflow-hidden ${mobileView === 'edit' ? 'flex h-full' : 'hidden md:flex'}`}>
         
         {/* Navigation Tabs */}
         <div className="flex border-b border-gray-900 bg-gray-950/50 p-2 gap-1.5 shrink-0 items-center">
@@ -2233,62 +2288,73 @@ workType: hybrid
         </div>
       </div>
 
-      {/* RIGHT PREVIEW: A4 Canvas rendering sandboxed in an iframe */}
-      <div className="flex-1 flex flex-col bg-gray-900/60 overflow-hidden relative">
+      {/* RIGHT PREVIEW: Canvas rendering sandboxed in an iframe */}
+      <div className={`flex-1 flex flex-col bg-gray-900/60 overflow-hidden relative ${mobileView === 'preview' ? 'flex h-full' : 'hidden md:flex'}`}>
         
         {/* Top toolbar */}
-        <div className="h-14 border-b border-gray-900 bg-gray-950/60 flex items-center justify-between px-6 z-10 shrink-0">
-          <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">A4 Live Preview</span>
-            <div className="flex items-center gap-1.5 bg-gray-900/80 border border-gray-850 px-2 py-1 rounded-lg">
-              <span className="text-[10px] text-gray-500 uppercase font-bold pr-1">Zoom:</span>
-              <button
-                type="button"
-                onClick={() => setZoom(prev => Math.max(0.4, Number((prev - 0.1).toFixed(1))))}
-                className="text-xs hover:text-purple-400 px-1 font-extrabold cursor-pointer"
-              >
-                -
-              </button>
-              <span className="text-xs font-mono font-bold w-10 text-center text-gray-300">{Math.round(zoom * 100)}%</span>
-              <button
-                type="button"
-                onClick={() => setZoom(prev => Math.min(1.5, Number((prev + 0.1).toFixed(1))))}
-                className="text-xs hover:text-purple-400 px-1 font-extrabold cursor-pointer"
-              >
-                +
-              </button>
+        <div className="h-14 border-b border-gray-900 bg-gray-950/60 flex items-center justify-between px-4 md:px-6 z-10 shrink-0">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest hidden sm:inline">
+              {currentLanguage === 'id' ? 'Pratinjau Langsung' : 'Live Preview'}
+            </span>
+            <div className="flex items-center gap-2 bg-gray-900/80 border border-gray-850 px-2 md:px-3 py-1 rounded-lg w-full sm:w-auto justify-between sm:justify-start">
+              <span className="text-[9px] sm:text-[10px] text-gray-500 uppercase font-bold">Zoom:</span>
+              
+              {/* Slider zoom controller */}
+              <input
+                type="range"
+                min="0.3"
+                max="2.0"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="w-16 sm:w-28 accent-purple-600 bg-gray-850 rounded-lg cursor-pointer h-1"
+                title="Adjust Zoom"
+              />
+              
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => setZoom(prev => Math.max(0.3, Number((prev - 0.05).toFixed(2))))}
+                  className="text-xs hover:text-purple-400 px-1 font-extrabold cursor-pointer text-gray-500"
+                >
+                  -
+                </button>
+                <span className="text-[10px] sm:text-xs font-mono font-bold w-10 text-center text-gray-300">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setZoom(prev => Math.min(2.0, Number((prev + 0.05).toFixed(2))))}
+                  className="text-xs hover:text-purple-400 px-1 font-extrabold cursor-pointer text-gray-500"
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
           
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center shrink-0">
             <button
               type="button"
               onClick={handleExportPDF}
-              className="bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 hover:text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 active:scale-[0.98]"
+              className="bg-gray-900 border border-gray-800 hover:bg-gray-850 text-gray-300 hover:text-white font-semibold text-[10px] sm:text-xs px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 active:scale-[0.98]"
             >
               🖨️ {currentLanguage === 'id' ? 'Cetak / Simpan' : 'Print / Save'}
             </button>
-            {/* {onLoadPDF && (
-              <button
-                type="button"
-                id="assign-direct-btn"
-                onClick={handleAssignToEditorDirectly}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-95 text-white font-bold text-xs px-4 py-2 rounded-lg shadow-md cursor-pointer transition-all duration-300 flex items-center gap-1.5 active:scale-[0.98]"
-                title={currentLanguage === 'id' ? 'Kirim langsung ke PDF Editor' : 'Send directly to PDF Editor'}
-              >
-                ⚡ {currentLanguage === 'id' ? 'Kirim ke PDF Editor' : 'Save & Edit in Editor'}
-              </button>
-            )} */}
           </div>
         </div>
 
-        {/* Dynamic zooming container */}
-        <div className="flex-1 overflow-auto p-8 flex justify-center items-start bg-gray-950/40 relative font-sans">
+        {/* Dynamic zooming container (with ref for pinch-to-zoom gestures) */}
+        <div 
+          ref={previewContainerRef}
+          className="flex-1 overflow-auto p-4 md:p-8 flex justify-center items-start bg-gray-950/40 relative font-sans select-none"
+        >
           {(() => {
             const currentDims = PAGE_DIMENSIONS_MM[pageSize] || PAGE_DIMENSIONS_MM.a4;
             return (
               <div
-                className="transition-all duration-150 shadow-2xl"
+                className="transition-all duration-150 shadow-2xl shrink-0"
                 style={{
                   width: currentDims.w,
                   height: currentDims.h,
@@ -2297,17 +2363,41 @@ workType: hybrid
                   marginBottom: `calc(${currentDims.h} * (${zoom} - 1))`
                 }}
               >
-            <iframe
-              ref={iframeRef}
-              title="A4 CV Preview Canvas"
-              srcDoc={previewHtml}
-              className="w-full h-full border border-gray-800 bg-white"
-            />
+                <iframe
+                  ref={iframeRef}
+                  title="A4 CV Preview Canvas"
+                  srcDoc={previewHtml}
+                  className="w-full h-full border border-gray-800 bg-white"
+                />
               </div>
             );
           })()}
         </div>
 
+      </div>
+
+      {/* Bottom Navigation Bar for Mobile View switching */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-gray-900 bg-gray-950/95 backdrop-blur-md flex items-center justify-around z-20">
+        <button
+          type="button"
+          onClick={() => setMobileView('edit')}
+          className={`flex-1 py-1 text-[10px] font-bold transition-all flex flex-col items-center gap-1 ${
+            mobileView === 'edit' ? 'text-purple-400' : 'text-gray-400'
+          }`}
+        >
+          <span className="text-base">📝</span>
+          <span>{currentLanguage === 'id' ? 'Form Data' : 'Profile & Data'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView('preview')}
+          className={`flex-1 py-1 text-[10px] font-bold transition-all flex flex-col items-center gap-1 ${
+            mobileView === 'preview' ? 'text-purple-400' : 'text-gray-400'
+          }`}
+        >
+          <span className="text-base">👁️</span>
+          <span>{currentLanguage === 'id' ? 'Pratinjau' : 'Live Preview'}</span>
+        </button>
       </div>
 
     </div>
