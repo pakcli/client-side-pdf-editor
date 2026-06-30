@@ -13,6 +13,7 @@ import {
   applyOverlays,
   extractImagesFromPdf
 } from './utils/pdfHelper';
+import CVMaker from './components/CVMaker';
 
 // Translations dictionary for premium multilingual support
 const dictionary = {
@@ -52,6 +53,7 @@ const dictionary = {
     tool_text: "🔤 Add Text",
     tool_image: "🖼️ Add Image",
     tool_extract_images: "🖼️ Extract Img",
+    tool_cv_maker: "📄 CV Maker",
     combineFilesDesc: "Combine 2-10 files",
     rearrangePagesDesc: "Rearrange pages",
     separateRangeDesc: "Separate range subset",
@@ -60,6 +62,7 @@ const dictionary = {
     addCustomTextDesc: "Type custom texts",
     addImageAssetsDesc: "Place jpg/png assets",
     extractAssetsDesc: "Download PDF assets",
+    cvMakerDesc: "Create A4 resume from Markdown or form",
     dropMerge: "Drop 2–10 PDF files to merge",
     dropSingle: "Drop your PDF file here",
     orBrowse: "or click to browse local files",
@@ -131,6 +134,7 @@ const dictionary = {
     tool_text: "🔤 Tambah Teks",
     tool_image: "🖼️ Tambah Gambar",
     tool_extract_images: "🖼️ Ekstrak Gambar",
+    tool_cv_maker: "📄 CV Maker",
     combineFilesDesc: "Gabungkan 2-10 berkas",
     rearrangePagesDesc: "Susun ulang halaman",
     separateRangeDesc: "Pisahkan subset rentang",
@@ -139,6 +143,7 @@ const dictionary = {
     addCustomTextDesc: "Ketik teks khusus",
     addImageAssetsDesc: "Tempatkan aset jpg/png",
     extractAssetsDesc: "Unduh aset gambar PDF",
+    cvMakerDesc: "Buat CV A4 elegan dari Markdown atau form",
     dropMerge: "Letakkan 2-10 file PDF untuk digabungkan",
     dropSingle: "Letakkan file PDF Anda di sini",
     orBrowse: "atau klik untuk memilih file lokal",
@@ -2646,27 +2651,40 @@ export default function App() {
             {fileName}
           </div>
         )}
+        {activeTool === 'cv_maker' && (
+          <div className="hidden sm:flex items-center bg-purple-950/40 border border-purple-500/20 rounded-full px-3 py-1 text-[11px] text-purple-400 font-semibold">
+            ✨ CV Maker Workspace
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           {originalBytes && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowDownloadAllModal(true)}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold text-xs px-2.5 md:px-3.5 py-1.5 md:py-2 rounded-lg shadow-md cursor-pointer transition-all duration-300 flex items-center justify-center gap-1.5"
-                title={dictionary[currentLanguage]?.downloadAll || "Download All Versions"}
-              >
-                ⬇ <span className="hidden sm:inline">{dictionary[currentLanguage]?.downloadAll || "Download All Versions"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCloseConfirm(true)}
-                className="text-red-500 hover:text-red-400 text-sm font-semibold px-2 py-1.5 cursor-pointer transition-colors flex items-center justify-center"
-                title="Close File"
-              >
-                ✖
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setShowDownloadAllModal(true)}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold text-xs px-2.5 md:px-3.5 py-1.5 md:py-2 rounded-lg shadow-md cursor-pointer transition-all duration-300 flex items-center justify-center gap-1.5"
+              title={dictionary[currentLanguage]?.downloadAll || "Download All Versions"}
+            >
+              ⬇ <span className="hidden sm:inline">{dictionary[currentLanguage]?.downloadAll || "Download All Versions"}</span>
+            </button>
+          )}
+          {(originalBytes || activeTool === 'cv_maker') && (
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTool === 'cv_maker') {
+                  if (window.confirm(currentLanguage === 'id' ? 'Apakah Anda yakin ingin keluar dari CV Maker?' : 'Are you sure you want to exit CV Maker?')) {
+                    setActiveTool(null);
+                  }
+                } else {
+                  setShowCloseConfirm(true);
+                }
+              }}
+              className="text-red-500 hover:text-red-400 text-sm font-semibold px-2 py-1.5 cursor-pointer transition-colors flex items-center justify-center"
+              title={activeTool === 'cv_maker' ? "Exit CV Maker" : "Close File"}
+            >
+              ✖
+            </button>
           )}
         </div>
       </header>
@@ -2687,7 +2705,7 @@ export default function App() {
         )}
 
         {/* If no file is loaded, show the Drop Zone and Tool selection dashboard */}
-        {!originalBytes ? (
+        {!originalBytes && activeTool !== 'cv_maker' ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 max-w-4xl mx-auto w-full">
 
             {/* Action selector cards */}
@@ -2796,7 +2814,7 @@ export default function App() {
             </div>
 
             {/* Tool grid dashboard selector */}
-            <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            <div className="w-full grid grid-cols-2 md:grid-cols-3 gap-3.5">
               {[
                 { id: 'merge', label: dictionary[currentLanguage]?.tool_merge || '🔀 Merge PDFs', desc: dictionary[currentLanguage]?.combineFilesDesc || 'Combine 2-10 files' },
                 { id: 'reorder', label: dictionary[currentLanguage]?.tool_reorder || '📋 Reorder', desc: dictionary[currentLanguage]?.rearrangePagesDesc || 'Rearrange pages' },
@@ -2806,6 +2824,7 @@ export default function App() {
                 { id: 'text', label: dictionary[currentLanguage]?.tool_text || '🔤 Add Text', desc: dictionary[currentLanguage]?.addCustomTextDesc || 'Type custom texts' },
                 { id: 'image', label: dictionary[currentLanguage]?.tool_image || '🖼️ Add Image', desc: dictionary[currentLanguage]?.addImageAssetsDesc || 'Place jpg/png assets' },
                 { id: 'extract_images', label: dictionary[currentLanguage]?.tool_extract_images || '🖼️ Extract Img', desc: dictionary[currentLanguage]?.extractAssetsDesc || 'Download PDF assets' },
+                { id: 'cv_maker', label: dictionary[currentLanguage]?.tool_cv_maker || '📄 CV Maker', desc: dictionary[currentLanguage]?.cvMakerDesc || 'Create A4 resume from Markdown or form' },
               ].map(tool => (
                 <button
                   type="button"
@@ -2813,6 +2832,8 @@ export default function App() {
                   onClick={() => {
                     if (tool.id === 'merge') {
                       setActiveTool('merge');
+                    } else if (tool.id === 'cv_maker') {
+                      setActiveTool('cv_maker');
                     } else {
                       setActiveTool(tool.id === 'link' || tool.id === 'stamp' || tool.id === 'text' || tool.id === 'image' ? 'overlays' : tool.id);
                       if (tool.id === 'link' || tool.id === 'stamp' || tool.id === 'text' || tool.id === 'image') {
@@ -2831,6 +2852,35 @@ export default function App() {
             </div>
 
           </div>
+        ) : activeTool === 'cv_maker' ? (
+          <CVMaker 
+            currentLanguage={currentLanguage} 
+            onBack={() => setActiveTool(null)}
+            onLoadPDF={async (pdfBytes, filename) => {
+              setLoading(true);
+              setLoadingMsg('Loading compiled PDF...');
+              try {
+                setFileName(filename);
+                setOriginalBytes(pdfBytes);
+                const doc = await loadPdfDoc(pdfBytes);
+                setPdfjsDoc(doc);
+                setTotalPages(doc.numPages);
+                setVersions([{ id: 'orig', label: 'CV PDF Generated', ops: [] }]);
+                setActiveVersionIndex(0);
+                const initialOrder = Array.from({ length: doc.numPages }, (_, i) => i);
+                setPageOrder(initialOrder);
+                // Switch active tool to 'overlays' so the user is directly in the PDF Editor with this PDF!
+                setActiveTool('overlays');
+                // Set default overlay tool to 'link' or similar
+                setOverlayTool('link');
+              } catch (err) {
+                console.error(err);
+                alert('Error loading compiled PDF: ' + err.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          />
         ) : (
 
           // Workspace layouts once PDF is loaded
